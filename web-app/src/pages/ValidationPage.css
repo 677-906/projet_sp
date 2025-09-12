@@ -1,0 +1,114 @@
+/* src/pages/ValidationPage.css */
+
+.page-container {
+  font-family: sans-serif;
+  background-color: #f8f9fa;
+  min-height: 100vh;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #ffffff;
+  padding: 20px 30px;
+  border-bottom: 1px solid #dee2e6;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.page-header h1 {
+  margin: 0;
+  font-size: 1.5em;
+  color: #343a40;
+}
+
+.back-button {
+  padding: 10px 15px;
+  background-color: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background-color 0.2s;
+}
+
+.back-button:hover {
+  background-color: #5a6268;
+}
+
+.page-content {
+  padding: 30px;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: #ffffff;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  border-radius: 8px;
+  overflow: hidden; /* Pour que le border-radius s'applique aux coins du tableau */
+}
+
+.data-table th, .data-table td {
+  border-bottom: 1px solid #dee2e6;
+  padding: 12px 15px;
+  text-align: left;
+}
+
+.data-table th {
+  background-color: #e9ecef;
+  font-weight: 600;
+  color: #495057;
+}
+
+.data-table tbody tr:hover {
+  background-color: #f8f9fa;
+}
+
+.status-badge {
+  padding: 5px 10px;
+  border-radius: 12px; /* Forme de pilule */
+  font-size: 0.85em;
+  font-weight: bold;
+  text-transform: capitalize;
+}
+
+.status-badge.pending {
+  background-color: #fff3cd;
+  color: #856404;
+}
+
+.action-button {
+  border: none;
+  padding: 8px 12px;
+  border-radius: 4px;
+  color: white;
+  cursor: pointer;
+  margin-right: 5px;
+  font-weight: 500;
+  transition: opacity 0.2s;
+}
+
+.action-button:hover {
+  opacity: 0.8;
+}
+
+.view-button { 
+  background-color: #007bff; 
+}
+
+.no-data-message {
+  text-align: center;
+  font-size: 1.2em;
+  color: #6c757d;
+  padding: 50px;
+  background-color: #fff;
+  border-radius: 8px;
+}
+
+.loading {
+  text-align: center;
+  padding: 50px;
+  font-size: 1.2em;
+}
