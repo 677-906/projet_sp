@@ -4,54 +4,75 @@ import axiosInstance from '../api/axiosConfig';
 import RNPickerSelect from 'react-native-picker-select';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 
+// --- COMPOSANT RÉUTILISABLE AVEC LA LOGIQUE DE FILTRAGE ---
 const DynamicSection = ({ title, items, setItems, listForPicker, pickerPlaceholder, fields, extraFields = [] }) => {
   const handleAddItem = () => { setItems(prev => [...prev, { key: Date.now(), id_field: null }]); };
   const handleUpdateItem = (key, field, value) => { setItems(prev => prev.map(item => item.key === key ? { ...item, [field]: value } : item)); };
   const handleRemoveItem = (key) => { setItems(prev => prev.filter(item => item.key !== key)); };
 
+  // On calcule l'ensemble des IDs déjà sélectionnés dans cette section
+  const selectedIds = new Set(items.map(item => item.id_field));
+
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>{title}</Text>
-      {items.map((item) => (
-        <View key={item.key} style={styles.dynamicItemContainer}>
-          <TouchableOpacity onPress={() => handleRemoveItem(item.key)} style={styles.deleteButton}>
-            <Ionicons name="trash-bin-outline" size={20} color="#dc3545" />
-          </TouchableOpacity>
-          <RNPickerSelect
-            onValueChange={(value) => handleUpdateItem(item.key, 'id_field', value)}
-            items={listForPicker}
-            placeholder={{ label: pickerPlaceholder, value: null }}
-            style={pickerSelectStyles}
-            value={item.id_field}
-          />
-          {fields.map(field => (
-            <TextInput
-              key={field.name}
-              style={styles.dynamicInput}
-              placeholder={field.placeholder}
-              keyboardType={field.type === 'numeric' ? 'numeric' : 'default'}
-              value={item[field.name]?.toString() || ''}
-              onChangeText={(text) => handleUpdateItem(item.key, field.name, text)}
+      {items.map((item) => {
+        // --- MODIFICATION N°1 : On calcule les options disponibles pour CETTE ligne ---
+        const availableOptions = listForPicker.filter(
+          option => !selectedIds.has(option.value) || option.value === item.id_field
+        );
+        // ------------------------------------------------------------------------
+
+        return (
+          <View key={item.key} style={styles.dynamicItemContainer}>
+            <TouchableOpacity onPress={() => handleRemoveItem(item.key)} style={styles.deleteButton}>
+              <Ionicons name="trash-bin-outline" size={20} color="#dc3545" />
+            </TouchableOpacity>
+            <RNPickerSelect
+              onValueChange={(value) => handleUpdateItem(item.key, 'id_field', value)}
+              // On utilise la nouvelle liste filtrée
+              items={availableOptions}
+              placeholder={{ label: pickerPlaceholder, value: null }}
+              style={pickerSelectStyles}
+              value={item.id_field}
             />
-          ))}
-          {extraFields.map(extraField => (
-            <View key={extraField.name} style={styles.switchContainer}>
-              <Text style={styles.label}>{extraField.label}</Text>
-              <Switch
-                value={item[extraField.name] || false}
-                onValueChange={(value) => handleUpdateItem(item.key, extraField.name, value)}
+            {fields.map(field => (
+              <TextInput
+                key={field.name}
+                style={styles.dynamicInput}
+                placeholder={field.placeholder}
+                keyboardType={field.type === 'numeric' ? 'numeric' : 'default'}
+                value={item[field.name]?.toString() || ''}
+                onChangeText={(text) => handleUpdateItem(item.key, field.name, text)}
               />
-            </View>
-          ))}
-        </View>
-      ))}
-      <TouchableOpacity style={styles.addButton} onPress={handleAddItem}>
-        <Text style={styles.addButtonText}>+ Ajouter une Ligne</Text>
-      </TouchableOpacity>
+            ))}
+            {extraFields.map(extraField => (
+              <View key={extraField.name} style={styles.switchContainer}>
+                <Text style={styles.label}>{extraField.label}</Text>
+                <Switch
+                  value={item[extraField.name] || false}
+                  onValueChange={(value) => handleUpdateItem(item.key, extraField.name, value)}
+                />
+              </View>
+            ))}
+          </View>
+        );
+      })}
+
+      {/* --- MODIFICATION N°2 : Le bouton "Ajouter" ne s'affiche que s'il reste des options --- */}
+      {items.length < listForPicker.length && (
+        <TouchableOpacity style={styles.addButton} onPress={handleAddItem}>
+          <Text style={styles.addButtonText}>+ Ajouter une Ligne</Text>
+        </TouchableOpacity>
+      )}
+      {/* ------------------------------------------------------------------------------------- */}
     </View>
   );
 };
 
+
+// Le reste de votre fichier (le composant principal VisitFormScreen) est déjà correct
+// et n'a pas besoin d'être modifié.
 export default function VisitFormScreen({ route, navigation }) {
   const { clientId, clientName } = route.params;
   const [stocks, setStocks] = useState([]);
@@ -129,7 +150,7 @@ export default function VisitFormScreen({ route, navigation }) {
         <DynamicSection title="Relevé de Stock & Ruptures" items={stocks} setItems={setStocks} listForPicker={produitsForPicker} pickerPlaceholder="Sélectionner produit..." fields={[{ name: 'quantite', placeholder: 'Qté en Stock', type: 'numeric' }]} extraFields={[{ name: 'en_rupture', label: 'En Rupture' }]} />
         <DynamicSection title="Incidents" items={incidents} setItems={setIncidents} listForPicker={produitsForPicker} pickerPlaceholder="Sélectionner produit..." fields={[{ name: 'quantite', placeholder: 'Qté', type: 'numeric' }, { name: 'observation', placeholder: 'Observation (ex: abîmé)', type: 'text' }]} />
         <DynamicSection title="Prise de Commande" items={commandes} setItems={setCommandes} listForPicker={produitsForPicker} pickerPlaceholder="Sélectionner produit..." fields={[{ name: 'quantite', placeholder: 'Qté Commandée', type: 'numeric' }, { name: 'observation', placeholder: 'Observation', type: 'text' }]} />
-        <DynamicSection title="Veille Concurrentielle" items={veilles} setItems={setVeilles} listForPicker={concurrentsForPicker} pickerPlaceholder="Sélectioncirr concurrent..." fields={[{ name: 'packs', placeholder: 'Nombre de packs', type: 'numeric' }, { name: 'activite', placeholder: 'Activité observée', type: 'text' }, { name: 'mecanisme', placeholder: 'Mécanisme', type: 'text' }]} />
+        <DynamicSection title="Veille Concurrentielle" items={veilles} setItems={setVeilles} listForPicker={concurrentsForPicker} pickerPlaceholder="Sélectionner un concurrent..." fields={[{ name: 'packs', placeholder: 'Nombre de packs', type: 'numeric' }, { name: 'activite', placeholder: 'Activité observée', type: 'text' }, { name: 'mecanisme', placeholder: 'Mécanisme', type: 'text' }]} />
 
         <View style={styles.section}>
             <Text style={styles.sectionTitle}>Observations Générales</Text>

@@ -36,6 +36,20 @@ function ProductManagementPage() {
     }
   };
 
+const handleDeleteProduit = async (produitId) => {
+    if (window.confirm(`Êtes-vous sûr de vouloir supprimer le produit ID ${produitId} ?`)) {
+      try {
+        await axiosInstance.delete(`/produits/${produitId}`);
+        alert('Produit supprimé avec succès !');
+        // On rafraîchit la liste des produits
+        fetchProduits();
+      } catch (error) {
+        alert('Erreur lors de la suppression du produit.');
+        console.error(error.response?.data);
+      }
+    }
+  };
+
   return (
     <div className="management-page">
       <h1>Gestion du Catalogue de Produits</h1>
@@ -50,21 +64,31 @@ function ProductManagementPage() {
       </div>
 
       <div className="management-table-container">
-        <h3>Liste des Produits Existants</h3>
-        <table className="data-table">
-          <thead><tr><th>ID</th><th>Nom du Produit</th><th>Marque</th></tr></thead>
-          <tbody>
-            {produits.map(produit => (
-              <tr key={produit.id}>
-                <td>{produit.id}</td>
-                <td>{produit.nom_produit}</td>
-                <td>{produit.marque}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <h3>Liste des Produits Existants</h3>
+    <table className="data-table">
+      {/* On ajoute une colonne "Actions" */}
+      <thead><tr><th>ID</th><th>Nom du Produit</th><th>Marque</th><th>Actions</th></tr></thead>
+      <tbody>
+        {produits.map(produit => (
+          <tr key={produit.id}>
+            <td>{produit.id}</td>
+            <td>{produit.nom_produit}</td>
+            <td>{produit.marque}</td>
+            {/* On ajoute le bouton de suppression */}
+            <td>
+              <button 
+                  className="action-button reject-button" 
+                  onClick={() => handleDeleteProduit(produit.id)}
+              >
+                  Supprimer
+              </button>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+</div>
   );
 }
 

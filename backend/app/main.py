@@ -108,6 +108,22 @@ def get_admin_dashboard_stats(
     }
 
 
+@app.delete("/produits/{produit_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["Produits"])
+def delete_produit(
+    produit_id: int,
+    db: Session = Depends(get_db),
+    admin_user: models.User = Depends(get_current_admin_user)
+):
+    """
+    Supprime un produit du catalogue.
+    Accessible uniquement aux administrateurs.
+    """
+    deleted_produit = crud.delete_produit(db, produit_id=produit_id)
+    if not deleted_produit:
+        raise HTTPException(status_code=404, detail="Produit non trouvé")
+    return # On renvoie une réponse vide 204
+
+
 @app.delete("/admin/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["Admin - Gestion Utilisateurs"])
 def delete_user(
     user_id: int,
@@ -169,6 +185,52 @@ def valider_visite(visite_id: int, db: Session = Depends(get_db), current_user: 
 def rejeter_visite(visite_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     # ... logique de rejet
     return db_visite
+
+
+@app.get("/merchandiser/dashboard-stats", tags=["Merchandiser - Tableau de Bord"])
+def get_merchandiser_dashboard_stats(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    if not current_user.merchandiser_profile:
+        raise HTTPException(status_code=403, detail="Accès réservé aux merchandisers")
+    
+    merchandiser_id = current_user.merchandiser_profile.id
+    today = datetime.date.today()
+
+    # 1. Compter les visites du jour
+    visites_aujourdhui = (
+        db.query(models.Visite)
+        .filter(
+            models.Visite.merchandiser_id == merchandiser_id,
+            models.Visite.date_visite == today
+        )
+        .count()
+    )
+
+    # 2. Récupérer les 3 dernières visites
+    dernieres_visites = (
+        db.query(models.Visite)
+        .filter(models.Visite.merchandiser_id == merchandiser_id)
+        .order_by(models.Visite.id.desc())
+        .limit(3)
+        .all()
+    )
+
+    # 3. (Exemple) Calculer le CA du mois (simplifié)
+    # Pour une vraie appli, ce calcul serait plus complexe
+    ca_du_mois = db.query(func.sum(models.DetailVisiteProduit.quantite)).join(models.Visite).filter(
+        models.Visite.merchandiser_id == merchandiser_id,
+        # Vous pourriez filtrer par mois ici
+    ).scalar() or 0
+
+    return {
+        "visitesAujourdhui": visites_aujourdhui,
+        "objectifVisitesJour": 8, # Objectif factice
+        "caDuMois": ca_du_mois * 500, # Prix moyen factice
+        "objectifCaMois": 2000000, # Objectif factice
+        "dernieresVisites": dernieres_visites
+    }
 
 # --- Routes de Données de Référence ---
 @app.get("/clients/", response_model=List[schemas.Client], tags=["Données de Référence"])

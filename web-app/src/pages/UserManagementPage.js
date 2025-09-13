@@ -105,7 +105,7 @@ function UserManagementPage() {
         <form onSubmit={handleCreateUser} className="management-form">
           <input type="text" value={nom} onChange={e => setNom(e.target.value)} placeholder="Nom complet" required />
           <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" required />
-          <input type="password" value={password} onChange={e => setPassword(e.target.value)}  required />
+          <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder='Mot de passe' required />
           <select value={roleId} onChange={e => setRoleId(e.target.value)}>
             {roles.map(role => (
               <option key={role.id} value={role.id}>{role.nom}</option>
@@ -170,3 +170,7 @@ function UserManagementPage() {
 }
 
 export default UserManagementPage;
+
+
+
+

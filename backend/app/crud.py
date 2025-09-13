@@ -75,6 +75,17 @@ def create_produit(db: Session, produit: schemas.ProduitCreate):
     db.commit()
     db.refresh(db_produit)
     return db_produit
+
+def delete_produit(db: Session, produit_id: int):
+    """Supprime un produit de la base de données."""
+    db_produit = db.query(models.Produit).filter(models.Produit.id == produit_id).first()
+    if db_produit:
+        db.delete(db_produit)
+        db.commit()
+        return db_produit
+    return None
+
+
 def get_concurrent_by_nom(db: Session, nom: str):
     return db.query(models.Concurrent).filter(models.Concurrent.nom == nom).first()
 def get_concurrents(db: Session, skip: int = 0, limit: int = 100):
