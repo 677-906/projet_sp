@@ -75,6 +75,19 @@ class Produit(Base):
     id = Column(Integer, primary_key=True, index=True)
     nom_produit = Column(String(200), nullable=False)
     marque = Column(String(100), nullable=True)
+    categorie_id = Column(Integer, ForeignKey('categories_produit.id'))
+
+    categorie = relationship("CategorieProduit", back_populates="produits")
+
+
+class CategorieProduit(Base):
+    __tablename__ = 'categories_produit'
+    id = Column(Integer, primary_key=True, index=True)
+    nom = Column(String(100), unique=True, nullable=False)
+    
+    # Relation inverse vers les produits
+    produits = relationship("Produit", back_populates="categorie")
+
 
 class Concurrent(Base):
     __tablename__ = 'concurrents'
@@ -93,8 +106,12 @@ class Visite(Base):
     observations_generales = Column(Text, nullable=True)
     fifo_respecte = Column(Boolean, default=True)
     planogramme_respecte = Column(Boolean, default=True)
+    validateur_id = Column(Integer, ForeignKey('superviseurs.id'), nullable=True)
+    date_validation = Column(Date, nullable=True)
+    heure_debut = Column(Time, nullable=True)
     
     merchandiser = relationship("Merchandiser", back_populates="visites")
+    validateur = relationship("Superviseur")
     client = relationship("Client", back_populates="visites")
     releves_stock = relationship("ReleveStock", back_populates="visite")
     details_produits = relationship("DetailVisiteProduit", back_populates="visite")

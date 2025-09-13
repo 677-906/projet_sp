@@ -49,7 +49,9 @@ function VisitDetailPage() {
             <strong>Date :</strong> {new Date(visite.date_visite).toLocaleDateString()}
           </p>
         </div>
-        <button onClick={() => navigate('/dashboard')} className="back-button">Retour</button>
+         <button onClick={() => navigate(-1)} className="back-button">
+          Retour à la liste
+        </button>
       </header>
       
       <div className="form-content">

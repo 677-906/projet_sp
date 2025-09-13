@@ -9,11 +9,20 @@ function ProductManagementPage() {
   // États pour le formulaire de création
   const [nomProduit, setNomProduit] = useState('');
   const [marque, setMarque] = useState('');
+  const [categories, setCategories] = useState([]); // Pour stocker la liste des catégories
+  const [categorieId, setCategorieId] = useState('');
 
   const fetchProduits = async () => {
     try {
-      const response = await axiosInstance.get('/produits/');
-      setProduits(response.data);
+      const [produitsRes, categoriesRes] = await Promise.all([
+        axiosInstance.get('/produits/'),
+        axiosInstance.get('/categories-produit/')
+      ]);
+      setProduits(produitsRes.data);
+      setCategories(categoriesRes.data);
+       if (categoriesRes.data.length > 0) {
+        setCategorieId(categoriesRes.data[0].id);
+      }
     } catch (error) { console.error("Erreur chargement produits:", error); }
   };
 
@@ -24,7 +33,7 @@ function ProductManagementPage() {
   const handleCreateProduit = async (event) => {
     event.preventDefault();
     try {
-      const newProduct = { nom_produit: nomProduit, marque: marque };
+      const newProduct = { nom_produit: nomProduit, marque: marque, categorie_id: parseInt(categorieId) };
       await axiosInstance.post('/produits/', newProduct);
       alert('Produit créé avec succès !');
       fetchProduits(); // On recharge la liste
@@ -59,6 +68,12 @@ const handleDeleteProduit = async (produitId) => {
         <form onSubmit={handleCreateProduit} className="management-form">
           <input type="text" value={nomProduit} onChange={e => setNomProduit(e.target.value)} placeholder="Nom du produit" required />
           <input type="text" value={marque} onChange={e => setMarque(e.target.value)} placeholder="Marque" required />
+          <select value={categorieId} onChange={e => setCategorieId(e.target.value)} required>
+            <option value="">-- Choisir une catégorie --</option>
+            {categories.map(cat => (
+              <option key={cat.id} value={cat.id}>{cat.nom}</option>
+            ))}
+          </select>
           <button type="submit">Ajouter</button>
         </form>
       </div>

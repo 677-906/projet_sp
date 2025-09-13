@@ -13,6 +13,9 @@ function AdminLayout({ onLogout }) {
           <li><NavLink to="/admin/dashboard">Tableau de Bord</NavLink></li>
           <li><NavLink to="/admin/users">Gestion Utilisateurs</NavLink></li>
           <li><NavLink to="/admin/products">Gestion Produits</NavLink></li>
+          <li><NavLink to="/admin/reports">Rapports Validés</NavLink></li>
+          <li><NavLink to="/admin/clients">Gestion Clients</NavLink></li>
+
           {/* <li><NavLink to="/admin/products">Gestion Produits</NavLink></li> */}
         </ul>
         <button onClick={onLogout} className="sidebar-logout-button">Déconnexion</button>

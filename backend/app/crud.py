@@ -50,9 +50,6 @@ def create_full_user(db: Session, user_data: schemas.FullUserCreate):
 def delete_user(db: Session, user_id: int):
     db_user = db.query(models.User).filter(models.User.id == user_id).first()
     if db_user:
-        # On pourrait vouloir empêcher la suppression du premier admin
-        # if db_user.role.nom.lower() == 'administrateur':
-        #     return None 
         db.delete(db_user)
         db.commit()
         return db_user
@@ -67,6 +64,23 @@ def create_client(db: Session, client: schemas.ClientCreate):
     db.commit()
     db.refresh(db_client)
     return db_client
+
+# Dans app/crud.py
+
+# ... (les autres fonctions crud pour les clients)
+
+def delete_client(db: Session, client_id: int):
+    """Supprime un client de la base de données."""
+    db_client = db.query(models.Client).filter(models.Client.id == client_id).first()
+    if db_client:
+        # Attention: si des visites sont liées à ce client, cela peut causer une erreur
+        # d'intégrité référentielle. Une vraie application gérerait ce cas
+        # (ex: suppression en cascade ou anonymisation).
+        db.delete(db_client)
+        db.commit()
+        return db_client
+    return None
+
 def get_produits(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.Produit).offset(skip).limit(limit).all()
 def create_produit(db: Session, produit: schemas.ProduitCreate):
@@ -85,6 +99,18 @@ def delete_produit(db: Session, produit_id: int):
         return db_produit
     return None
 
+
+def get_categories_produit(db: Session, skip: int = 0, limit: int = 100):
+    """Récupère la liste de toutes les catégories de produits."""
+    return db.query(models.CategorieProduit).offset(skip).limit(limit).all()
+
+def create_categorie_produit(db: Session, categorie: schemas.CategorieProduitCreate):
+    """Crée une nouvelle catégorie de produit."""
+    db_categorie = models.CategorieProduit(**categorie.dict())
+    db.add(db_categorie)
+    db.commit()
+    db.refresh(db_categorie)
+    return db_categorie
 
 def get_concurrent_by_nom(db: Session, nom: str):
     return db.query(models.Concurrent).filter(models.Concurrent.nom == nom).first()
@@ -119,4 +145,4 @@ def log_activity(db: Session, user_id: int, action: str):
     """Enregistre une nouvelle activité dans le journal."""
     db_log = models.ActiviteLog(user_id=user_id, action=action)
     db.add(db_log)
-    # Note: on ne commit pas ici, le commit se fera à la fin de l'opération principale
+    

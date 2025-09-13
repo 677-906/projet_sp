@@ -16,6 +16,42 @@ app = FastAPI(title="API Source du Pays")
 origins = ["http://localhost", "http://localhost:3000"]
 app.add_middleware(CORSMiddleware, allow_origins=origins, allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
+
+
+@app.on_event("startup")
+def startup_event():
+    """
+    Cette fonction s'exécute une seule fois au démarrage de l'API.
+    Nous l'utilisons pour créer les données de base si elles n'existent pas.
+    """
+    db = database.SessionLocal()
+    try:
+        # 1. Vérifier si des rôles existent
+        if db.query(models.Role).count() == 0:
+            print("Aucun rôle trouvé, création des rôles par défaut...")
+            db.add(models.Role(nom="Administrateur", description="Gère tout le système"))
+            db.add(models.Role(nom="Superviseur", description="Gère une équipe de merchandisers"))
+            db.add(models.Role(nom="Merchandiser", description="Employé terrain"))
+            db.commit()
+
+        # 2. Vérifier si un admin existe
+        admin_role = db.query(models.Role).filter(models.Role.nom == "Administrateur").first()
+        if admin_role:
+            admin_user = db.query(models.User).filter(models.User.role_id == admin_role.id).first()
+            if not admin_user:
+                print("Aucun admin trouvé, création de l'admin par défaut...")
+                admin_data = schemas.UserCreate(
+                    nom="Admin",
+                    email="admin@gmail.com",
+                    password="admin237", # CHANGEZ CECI
+                    role_id=admin_role.id
+                )
+                crud.create_user(db, user=admin_data)
+                print("Admin par défaut créé avec succès.")
+
+    finally:
+        db.close()
+
 # --- Dépendances ---
 def get_db():
     db = database.SessionLocal()
@@ -63,6 +99,23 @@ def create_full_user_and_profile(user_data: schemas.FullUserCreate, db: Session 
 def read_all_users(db: Session = Depends(get_db), admin_user: models.User = Depends(get_current_admin_user)):
     return db.query(models.User).all()
 
+@app.get("/admin/visites/validees", response_model=List[schemas.VisiteInfo], tags=["Admin - Rapports"])
+def read_visites_validees(
+    db: Session = Depends(get_db),
+    admin_user: models.User = Depends(get_current_admin_user),
+    skip: int = 0,
+    limit: int = 100
+):
+    """Récupère la liste de tous les rapports de visite qui ont été validés."""
+    visites = (
+        db.query(models.Visite)
+        .filter(models.Visite.statut_validation == 'valide')
+        .order_by(models.Visite.date_visite.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+    return visites
 
 @app.get("/admin/stats/total-visites", response_model=int, tags=["Admin - Statistiques"])
 def get_total_visites_count(
@@ -71,6 +124,31 @@ def get_total_visites_count(
 ):
     """Compte le nombre total de visites dans la base de données."""
     return db.query(models.Visite).count()
+
+@app.post("/admin/clients/", response_model=schemas.Client, tags=["Admin - Gestion Données"])
+def create_client_by_admin(
+    client: schemas.ClientCreate,
+    db: Session = Depends(get_db),
+    admin_user: models.User = Depends(get_current_admin_user)
+):
+    """Permet à un admin de créer un nouveau client."""
+    return crud.create_client(db=db, client=client)
+
+
+@app.delete("/admin/clients/{client_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["Admin - Gestion Données"])
+def delete_client(
+    client_id: int,
+    db: Session = Depends(get_db),
+    admin_user: models.User = Depends(get_current_admin_user)
+):
+    """
+    Supprime un client.
+    Accessible uniquement aux administrateurs.
+    """
+    deleted_client = crud.delete_client(db, client_id=client_id)
+    if not deleted_client:
+        raise HTTPException(status_code=404, detail="Client non trouvé")
+    return 
 
 @app.get("/admin/stats/total-produits", response_model=int, tags=["Admin - Statistiques"])
 def get_total_produits_count(
@@ -106,6 +184,14 @@ def get_admin_dashboard_stats(
         "totalProducts": total_produits,
         "rolesDistribution": roles_distribution
     }
+
+@app.post("/produits/", response_model=schemas.Produit, tags=["Produits"])
+def create_produit(
+    produit: schemas.ProduitCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_admin_user)
+):
+    return crud.create_produit(db=db, produit=produit)
 
 
 @app.delete("/produits/{produit_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["Produits"])
@@ -178,13 +264,55 @@ def read_visite_details(visite_id: int, db: Session = Depends(get_db), current_u
         raise HTTPException(status_code=404, detail="Visite non trouvée")
     return db_visite
 @app.put("/visites/{visite_id}/valider", response_model=schemas.Visite, tags=["Superviseur - Validation"])
-def valider_visite(visite_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
-    # ... logique de validation
+def valider_visite(
+    visite_id: int, 
+    db: Session = Depends(get_db), 
+    current_user: models.User = Depends(get_current_user)
+):
+    """Change le statut d'une visite à 'valide'."""
+    # On vérifie que l'utilisateur est bien un superviseur
+    if not current_user.superviseur_profile:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Accès réservé aux superviseurs")
+    # 1. On récupère la visite depuis la base de données
+    db_visite = db.query(models.Visite).filter(models.Visite.id == visite_id).first()
+    
+    # 2. On vérifie si la visite existe
+    if not db_visite:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Visite non trouvée")
+    
+    db_visite.statut_validation = 'valide'
+    db_visite.validateur_id = current_user.superviseur_profile.id
+    
+    db.commit()
+    db.refresh(db_visite)
     return db_visite
+
+
 @app.put("/visites/{visite_id}/rejeter", response_model=schemas.Visite, tags=["Superviseur - Validation"])
-def rejeter_visite(visite_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
-    # ... logique de rejet
+def rejeter_visite(
+    visite_id: int, 
+    db: Session = Depends(get_db), 
+    current_user: models.User = Depends(get_current_user)
+):
+    """Change le statut d'une visite à 'rejete'."""
+    # On vérifie que l'utilisateur est bien un superviseur
+    if not current_user.superviseur_profile:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Accès réservé aux superviseurs")
+
+    # 1. On récupère la visite depuis la base de données
+    db_visite = db.query(models.Visite).filter(models.Visite.id == visite_id).first()
+    
+    # 2. On vérifie si la visite existe
+    if not db_visite:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Visite non trouvée")
+
+    db_visite.statut_validation = 'rejete'
+    db_visite.validateur_id = current_user.superviseur_profile.id
+    
+    db.commit()
+    db.refresh(db_visite)
     return db_visite
+
 
 
 @app.get("/merchandiser/dashboard-stats", tags=["Merchandiser - Tableau de Bord"])
@@ -253,3 +381,27 @@ def read_activity_logs(
     """Récupère les dernières activités du système."""
     logs = db.query(models.ActiviteLog).order_by(models.ActiviteLog.timestamp.desc()).limit(limit).all()
     return logs
+
+
+
+# Dans main.py
+
+# --- CRUD à ajouter dans crud.py ---
+# def create_categorie_produit(db, categorie): ...
+# def get_categories_produit(db): ...
+
+@app.post("/admin/categories-produit/", response_model=schemas.CategorieProduit, tags=["Admin - Gestion Données"])
+def create_categorie_produit(
+    categorie: schemas.CategorieProduitCreate,
+    db: Session = Depends(get_db),
+    admin_user: models.User = Depends(get_current_admin_user)
+):
+    # Ajouter une vérification pour l'unicité du nom
+    return crud.create_categorie_produit(db, categorie=categorie)
+
+@app.get("/categories-produit/", response_model=List[schemas.CategorieProduit], tags=["Données de Référence"])
+def read_categories_produit(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    return crud.get_categories_produit(db)

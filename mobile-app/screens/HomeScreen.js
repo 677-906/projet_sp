@@ -5,7 +5,7 @@ import { AuthContext } from '../context/AuthContext';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 
 // --- À CONFIGURER ---
-const API_URL = 'http://192.168.78.36:8000'; // Assurez-vous que l'IP est bonne
+const API_URL = 'http://192.168.78.36:8000'; 
 // --------------------
 
 export default function HomeScreen() {

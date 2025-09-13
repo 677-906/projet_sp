@@ -18,6 +18,8 @@ import AdminDashboardPage from './pages/AdminDashboardPage';
 import UserManagementPage from './pages/UserManagementPage';
 import HomeRedirector from './pages/HomeRedirector';
 import ProductManagementPage from './pages/ProductManagementPage';
+import ValidatedReportsPage from './pages/ValidatedReportsPage';
+import ClientManagementPage from './pages/ClientManagementPage';
 import './App.css';
 
 function PrivateRoute({ children }) {
@@ -59,6 +61,8 @@ function App() {
         <Route path="dashboard" element={<AdminDashboardPage />} />
         <Route path="users" element={<UserManagementPage />} />
         <Route path="products" element={<ProductManagementPage />} />
+        <Route path="reports" element={<ValidatedReportsPage />} />
+        <Route path="clients" element={<ClientManagementPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>

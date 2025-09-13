@@ -49,9 +49,16 @@ class ClientBase(BaseModel):
 class ClientCreate(ClientBase):
     pass
 
+class CategorieProduitBase(BaseModel):
+    nom: str
+class CategorieProduitCreate(CategorieProduitBase):
+    pass
+
+
 class ProduitBase(BaseModel):
     nom_produit: str
     marque: Optional[str] = None
+    categorie_id: int
 class ProduitCreate(ProduitBase):
     pass
 
@@ -106,6 +113,12 @@ class User(UserBase):
     class Config:
         from_attributes = True
 
+
+class CategorieProduit(CategorieProduitBase):
+    id: int
+    class Config:
+        from_attributes = True
+
 class Superviseur(BaseModel):
     id: int
     user: User
@@ -126,6 +139,7 @@ class Client(ClientBase):
 
 class Produit(ProduitBase):
     id: int
+    categorie: CategorieProduit
     class Config:
         from_attributes = True
         
@@ -193,3 +207,5 @@ class ActiviteLog(BaseModel):
      user: Optional[User] = None
      class Config:
          from_attributes = True
+
+
