@@ -384,12 +384,6 @@ def read_activity_logs(
 
 
 
-# Dans main.py
-
-# --- CRUD à ajouter dans crud.py ---
-# def create_categorie_produit(db, categorie): ...
-# def get_categories_produit(db): ...
-
 @app.post("/admin/categories-produit/", response_model=schemas.CategorieProduit, tags=["Admin - Gestion Données"])
 def create_categorie_produit(
     categorie: schemas.CategorieProduitCreate,

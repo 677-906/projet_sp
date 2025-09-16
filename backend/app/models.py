@@ -16,7 +16,6 @@ class Role(Base):
     description = Column(Text, nullable=True)
     users = relationship("User", back_populates="role")
 
-# Dans app/models.py
 
 class User(Base):
     __tablename__ = 'users'
@@ -148,7 +147,6 @@ class VeilleConcurrentielle(Base):
     visite_id = Column(Integer, ForeignKey('visites.id'))
     concurrent_id = Column(Integer, ForeignKey('concurrents.id'))
     
-    # On ajoute la marque comme un simple champ texte pour la simplicité
     marque = Column(String(255), nullable=True)
     
     nombre_packs = Column(Integer, nullable=True)
