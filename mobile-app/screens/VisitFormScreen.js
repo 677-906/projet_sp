@@ -70,9 +70,6 @@ const DynamicSection = ({ title, items, setItems, listForPicker, pickerPlacehold
   );
 };
 
-
-// Le reste de votre fichier (le composant principal VisitFormScreen) est déjà correct
-// et n'a pas besoin d'être modifié.
 export default function VisitFormScreen({ route, navigation }) {
   const { clientId, clientName } = route.params;
   const [stocks, setStocks] = useState([]);
