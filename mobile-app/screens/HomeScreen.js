@@ -2,10 +2,11 @@ import React, { useState, useEffect, useContext } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, ActivityIndicator, TouchableOpacity } from 'react-native';
 import axios from 'axios';
 import { AuthContext } from '../context/AuthContext';
+import axiosInstance from '../api/axiosConfig';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 
 // --- À CONFIGURER ---
-const API_URL = 'http://192.168.78.36:8000'; 
+const API_URL = 'http://10.105.50.117:8000'; 
 // --------------------
 
 export default function HomeScreen() {

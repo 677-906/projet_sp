@@ -2,11 +2,12 @@ import React, { useState, useEffect, useContext } from 'react';
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, SafeAreaView, TouchableOpacity } from 'react-native';
 import axios from 'axios';
 import { AuthContext } from '../context/AuthContext';
+import axiosInstance from '../api/axiosConfig';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native'; // Il manque cet import !
 
 // --- À CONFIGURER ---
-const API_URL = 'http://192.168.78.36:8000'; 
+const API_URL = 'http://10.105.50.117:8000'; 
 // --------------------
 
 // --- CORRECTION N°1 : ClientItem doit accepter 'client' et 'onPress' ---

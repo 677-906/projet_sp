@@ -5,11 +5,12 @@ import {
   ImageBackground, Animated, Easing
 } from 'react-native';
 import axios from 'axios';
+import axiosInstance from '../api/axiosConfig';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AuthContext } from '../context/AuthContext'; // On importe le contexte
 
 // --- À CONFIGURER ---
-const API_URL = 'http://192.168.78.36:8000';
+const API_URL = 'http://10.105.50.117:8000';
 const BACKGROUND_IMAGE_URL = 'https://images.unsplash.com/photo-1554629947-334ff61d85dc?q=80&w=2532&auto=format&fit=crop';
 // --------------------
 
