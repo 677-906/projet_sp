@@ -1,8 +1,10 @@
 import { render, screen } from '@testing-library/react';
+import '@testing-library/jest-dom';
+import { BrowserRouter as Router } from 'react-router-dom';
 import App from './App';
 
-test('renders learn react link', () => {
-  render(<App />);
-  const linkElement = screen.getByText(/learn react/i);
+test('renders login page when not authenticated', () => {
+  render(<Router><App /></Router>);
+  const linkElement = screen.getByText(/Portail de connexion/i);
   expect(linkElement).toBeInTheDocument();
 });

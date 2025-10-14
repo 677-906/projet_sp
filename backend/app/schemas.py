@@ -111,6 +111,12 @@ class VisiteCreate(VisiteBase):
     details_produits: List[DetailVisiteProduitBase] = []
     veilles_concurrentielles: List[VeilleConcurrentielleBase] = []
 
+class VisiteUpdate(BaseModel):
+    statut_validation: Optional[str] = None
+    rejection_reason: Optional[str] = None
+    notification_status: Optional[str] = None
+    validateur_id: Optional[int] = None
+
 # ==============================================================================
 # 2. SCHÉMAS DE RÉPONSE (Utilisés pour formater les données sortantes)
 # ==============================================================================

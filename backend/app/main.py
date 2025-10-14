@@ -113,6 +113,9 @@ def read_visites_validees(
     """Récupère la liste de tous les rapports de visite qui ont été validés."""
     visites = (
         db.query(models.Visite)
+        .options(
+            joinedload(models.Visite.validateur).joinedload(models.Superviseur.user)
+        )
         .filter(models.Visite.statut_validation == 'valide')
         .order_by(models.Visite.date_visite.desc())
         .offset(skip)
@@ -426,53 +429,52 @@ def read_visite_details(visite_id: int, db: Session = Depends(get_db), current_u
     return db_visite
 @app.put("/visites/{visite_id}/valider", response_model=schemas.Visite, tags=["Superviseur - Validation"])
 def valider_visite(
-    visite_id: int, 
-    db: Session = Depends(get_db), 
+    visite_id: int,
+    db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
     """Change le statut d'une visite à 'valide'."""
-    # On vérifie que l'utilisateur est bien un superviseur
     if not current_user.superviseur_profile:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Accès réservé aux superviseurs")
-    # 1. On récupère la visite depuis la base de données
-    db_visite = db.query(models.Visite).filter(models.Visite.id == visite_id).first()
-    
-    # 2. On vérifie si la visite existe
-    if not db_visite:
+
+    visite_update = schemas.VisiteUpdate(
+        statut_validation='valide',
+        notification_status='non lu',
+        validateur_id=current_user.superviseur_profile.id
+    )
+
+    updated_visite = crud.update_visite(db, visite_id=visite_id, visite_update=visite_update)
+
+    if not updated_visite:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Visite non trouvée")
-    
-    db_visite.statut_validation = 'valide'
-    db_visite.validateur_id = current_user.superviseur_profile.id
-    
-    db.commit()
-    db.refresh(db_visite)
-    return db_visite
+
+    return updated_visite
 
 
 @app.put("/visites/{visite_id}/rejeter", response_model=schemas.Visite, tags=["Superviseur - Validation"])
 def rejeter_visite(
-    visite_id: int, 
-    db: Session = Depends(get_db), 
+    visite_id: int,
+    rejection_data: schemas.VisiteUpdate,
+    db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
     """Change le statut d'une visite à 'rejete'."""
-    # On vérifie que l'utilisateur est bien un superviseur
     if not current_user.superviseur_profile:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Accès réservé aux superviseurs")
 
-    # 1. On récupère la visite depuis la base de données
-    db_visite = db.query(models.Visite).filter(models.Visite.id == visite_id).first()
+    visite_update = schemas.VisiteUpdate(
+        statut_validation='rejete',
+        rejection_reason=rejection_data.rejection_reason,
+        notification_status='non lu',
+        validateur_id=current_user.superviseur_profile.id
+    )
     
-    # 2. On vérifie si la visite existe
-    if not db_visite:
+    updated_visite = crud.update_visite(db, visite_id=visite_id, visite_update=visite_update)
+
+    if not updated_visite:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Visite non trouvée")
 
-    db_visite.statut_validation = 'rejete'
-    db_visite.validateur_id = current_user.superviseur_profile.id
-    
-    db.commit()
-    db.refresh(db_visite)
-    return db_visite
+    return updated_visite
 
 
 
@@ -560,3 +562,14 @@ def read_categories_produit(
     current_user: models.User = Depends(get_current_user)
 ):
     return crud.get_categories_produit(db)
+
+@app.get("/merchandiser/notifications", response_model=List[schemas.VisiteInfo], tags=["Merchandiser - Notifications"])
+def read_notifications(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Récupère les notifications pour le merchandiser connecté."""
+    if not current_user.merchandiser_profile:
+        raise HTTPException(status_code=403, detail="Accès réservé aux merchandisers")
+
+    return crud.get_notifications_for_user(db, user_id=current_user.id)
