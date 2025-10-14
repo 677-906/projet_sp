@@ -10,6 +10,7 @@ import datetime
 import io
 import csv
 from fastapi.responses import StreamingResponse
+from . import notifications
 
 from . import models, schemas, crud, security, database
 
@@ -86,6 +87,18 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db:
 @app.get("/users/me/", response_model=schemas.User, tags=["Authentification"])
 def read_users_me(current_user: models.User = Depends(get_current_user)):
     return current_user
+
+@app.put("/users/me/fcm-token", response_model=schemas.User, tags=["Authentification"])
+def update_fcm_token(
+    token_data: schemas.UserFCMTokenUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Met à jour le token FCM de l'utilisateur courant."""
+    current_user.fcm_token = token_data.fcm_token
+    db.commit()
+    db.refresh(current_user)
+    return current_user
 @app.get("/roles/", response_model=List[schemas.Role], tags=["Données de Référence"])
 def read_roles(db: Session = Depends(get_db)):
     return db.query(models.Role).all()
@@ -113,6 +126,10 @@ def read_visites_validees(
     """Récupère la liste de tous les rapports de visite qui ont été validés."""
     visites = (
         db.query(models.Visite)
+        .options(
+            joinedload(models.Visite.validateur).joinedload(models.Superviseur.user).joinedload(models.User.role),
+            joinedload(models.Visite.merchandiser).joinedload(models.Merchandiser.user)
+        )
         .filter(models.Visite.statut_validation == 'valide')
         .order_by(models.Visite.date_visite.desc())
         .offset(skip)
@@ -426,8 +443,8 @@ def read_visite_details(visite_id: int, db: Session = Depends(get_db), current_u
     return db_visite
 @app.put("/visites/{visite_id}/valider", response_model=schemas.Visite, tags=["Superviseur - Validation"])
 def valider_visite(
-    visite_id: int, 
-    db: Session = Depends(get_db), 
+    visite_id: int,
+    db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
     """Change le statut d'une visite à 'valide'."""
@@ -436,14 +453,21 @@ def valider_visite(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Accès réservé aux superviseurs")
     # 1. On récupère la visite depuis la base de données
     db_visite = db.query(models.Visite).filter(models.Visite.id == visite_id).first()
-    
+
     # 2. On vérifie si la visite existe
     if not db_visite:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Visite non trouvée")
-    
+
     db_visite.statut_validation = 'valide'
     db_visite.validateur_id = current_user.superviseur_profile.id
     
+    if db_visite.merchandiser and db_visite.merchandiser.user and db_visite.merchandiser.user.fcm_token:
+        notifications.send_fcm_notification(
+            token=db_visite.merchandiser.user.fcm_token,
+            title="Rapport Validé",
+            body=f"Bon travail ! Votre rapport pour {db_visite.client.nom_client} a été validé."
+        )
+
     db.commit()
     db.refresh(db_visite)
     return db_visite
@@ -451,8 +475,9 @@ def valider_visite(
 
 @app.put("/visites/{visite_id}/rejeter", response_model=schemas.Visite, tags=["Superviseur - Validation"])
 def rejeter_visite(
-    visite_id: int, 
-    db: Session = Depends(get_db), 
+    visite_id: int,
+    rejection_data: schemas.VisiteRejection,
+    db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
     """Change le statut d'une visite à 'rejete'."""
@@ -462,14 +487,22 @@ def rejeter_visite(
 
     # 1. On récupère la visite depuis la base de données
     db_visite = db.query(models.Visite).filter(models.Visite.id == visite_id).first()
-    
+
     # 2. On vérifie si la visite existe
     if not db_visite:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Visite non trouvée")
 
     db_visite.statut_validation = 'rejete'
+    db_visite.rejection_reason = rejection_data.rejection_reason
     db_visite.validateur_id = current_user.superviseur_profile.id
     
+    if db_visite.merchandiser and db_visite.merchandiser.user and db_visite.merchandiser.user.fcm_token:
+        notifications.send_fcm_notification(
+            token=db_visite.merchandiser.user.fcm_token,
+            title="Rapport Rejeté",
+            body=f"Votre rapport pour {db_visite.client.nom_client} a été rejeté. Raison: {rejection_data.rejection_reason}"
+        )
+
     db.commit()
     db.refresh(db_visite)
     return db_visite

@@ -26,6 +26,7 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(TIMESTAMP, default=datetime.datetime.utcnow)
     role_id = Column(Integer, ForeignKey('roles.id'))
+    fcm_token = Column(String(255), nullable=True)
     
     # --- RELATIONS ---
     role = relationship("Role", back_populates="users")
@@ -102,6 +103,7 @@ class Visite(Base):
     client_id = Column(Integer, ForeignKey('clients.id'))
     date_visite = Column(Date, default=datetime.date.today)
     statut_validation = Column(String(50), default='soumis')
+    rejection_reason = Column(Text, nullable=True)
     observations_generales = Column(Text, nullable=True)
     fifo_respecte = Column(Boolean, default=True)
     planogramme_respecte = Column(Boolean, default=True)

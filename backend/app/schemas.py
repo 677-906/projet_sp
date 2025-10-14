@@ -111,6 +111,12 @@ class VisiteCreate(VisiteBase):
     details_produits: List[DetailVisiteProduitBase] = []
     veilles_concurrentielles: List[VeilleConcurrentielleBase] = []
 
+class VisiteRejection(BaseModel):
+    rejection_reason: str
+
+class UserFCMTokenUpdate(BaseModel):
+    fcm_token: str
+
 # ==============================================================================
 # 2. SCHÉMAS DE RÉPONSE (Utilisés pour formater les données sortantes)
 # ==============================================================================
@@ -200,10 +206,12 @@ class VisiteInfo(BaseModel):
     statut_validation: str
     client: Client
     merchandiser: Merchandiser
+    validateur: Optional[Superviseur] = None
     class Config:
         from_attributes = True
         
 class VisiteDetail(Visite):
+    rejection_reason: Optional[str] = None
     merchandiser: Merchandiser
     client: Client
     releves_stock: List[ReleveStock] = []
