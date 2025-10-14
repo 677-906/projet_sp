@@ -7,55 +7,73 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import LoginScreen from './screens/LoginScreen';
 import HomeScreen from './screens/HomeScreen';
 import ClientsScreen from './screens/ClientsScreen';
-import VisitFormScreen from './screens/VisitFormScreen'; // On importe le nouvel écran
+import VisitFormScreen from './screens/VisitFormScreen';
+import ProfileScreen from './screens/ProfileScreen';
+import SettingsScreen from './screens/SettingsScreen';
+
 import { AuthProvider, AuthContext } from './context/AuthContext';
 
-const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
+const Tab = createBottomTabNavigator();
 
-// C'est notre navigation par onglets, elle ne change pas
-function MainAppTabs() {
+
+// La pile d'écrans pour un utilisateur NON authentifié
+function AuthStack() {
+  return (
+    <Stack.Navigator>
+      <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: "Paramètres du Serveur" }} />
+    </Stack.Navigator>
+  );
+}
+
+// La navigation principale (onglets) pour un utilisateur authentifié
+function HomeTabs() {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused, color, size }) => {
-          let iconName = route.name === 'Accueil' ? (focused ? 'home' : 'home-outline') : (focused ? 'list' : 'list-outline');
+          let iconName;
+          if (route.name === 'Accueil') iconName = focused ? 'home' : 'home-outline';
+          else if (route.name === 'Clients') iconName = focused ? 'list' : 'list-outline';
+          else if (route.name === 'Profil') iconName = focused ? 'person' : 'person-outline';
           return <Ionicons name={iconName} size={size} color={color} />;
         },
+        headerShown: false,
       })}
     >
       <Tab.Screen name="Accueil" component={HomeScreen} />
       <Tab.Screen name="Clients" component={ClientsScreen} />
+      <Tab.Screen name="Profil" component={ProfileScreen} />
     </Tab.Navigator>
   );
 }
 
-// C'est notre nouvelle structure globale
+// La pile d'écrans pour un utilisateur authentifié
+// Elle contient les onglets ET les écrans qui s'affichent par-dessus
+function AppStack() {
+    return (
+        <Stack.Navigator>
+            <Stack.Screen name="MainTabs" component={HomeTabs} options={{ headerShown: false }} />
+            <Stack.Screen name="VisitForm" component={VisitFormScreen} options={{ title: 'Rapport de Visite' }} />
+            <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Paramètres du Serveur' }} />
+        </Stack.Navigator>
+    );
+}
+
+
+// Le composant qui choisit quelle pile afficher (Auth ou App)
 function AppNavigator() {
   const { userToken } = useContext(AuthContext);
 
   return (
     <NavigationContainer>
-      <Stack.Navigator>
-        {userToken == null ? (
-          // Si pas de token, seule la page de Connexion est accessible
-          <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
-        ) : (
-          // Si connecté, on accède à la navigation principale
-          <>
-            <Stack.Screen name="Main" component={MainAppTabs} options={{ headerShown: false }} />
-            <Stack.Screen 
-              name="VisitForm" 
-              component={VisitFormScreen} 
-              options={{ title: 'Rapport de Visite' }} // Le titre en haut de l'écran
-            />
-          </>
-        )}
-      </Stack.Navigator>
+      {userToken == null ? <AuthStack /> : <AppStack />}
     </NavigationContainer>
   );
 }
 
+// Le point d'entrée final de l'application
 export default function App() {
   return (
     <AuthProvider>

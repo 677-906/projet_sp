@@ -13,6 +13,29 @@ def create_user(db: Session, user: schemas.UserCreate):
     db.commit()
     db.refresh(db_user)
     return db_user
+# Dans app/crud.py
+
+# ... (vos fonctions get_user_by_email, create_user, etc.)
+
+# --- LA FONCTION MANQUANTE EST ICI ---
+def update_user(db: Session, user_id: int, user_update: schemas.UserUpdate):
+    """Met à jour un utilisateur dans la base de données."""
+    db_user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not db_user:
+        return None
+    
+    # On récupère les données envoyées SANS les valeurs non définies
+    update_data = user_update.dict(exclude_unset=True)
+    
+    for key, value in update_data.items():
+        # Utilise setattr pour mettre à jour les champs dynamiquement
+        setattr(db_user, key, value)
+            
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+
 def create_superviseur_profile(db: Session, user_id: int):
     db_profile = models.Superviseur(user_id=user_id)
     db.add(db_profile)
@@ -65,9 +88,6 @@ def create_client(db: Session, client: schemas.ClientCreate):
     db.refresh(db_client)
     return db_client
 
-# Dans app/crud.py
-
-# ... (les autres fonctions crud pour les clients)
 
 def delete_client(db: Session, client_id: int):
     """Supprime un client de la base de données."""
@@ -80,6 +100,22 @@ def delete_client(db: Session, client_id: int):
         db.commit()
         return db_client
     return None
+
+def update_client(db: Session, client_id: int, client_update: schemas.ClientUpdate):
+    db_client = db.query(models.Client).filter(models.Client.id == client_id).first()
+    if not db_client:
+        return None
+    update_data = client_update.dict(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(db_client, key, value)
+    db.add(db_client)
+    db.commit()
+    db.refresh(db_client)
+    return db_client
+
+def search_clients(db: Session, query: str):
+    search_filter = models.Client.nom_client.ilike(f"%{query}%") | models.Client.contact.ilike(f"%{query}%")
+    return db.query(models.Client).filter(search_filter).all()
 
 def get_produits(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.Produit).offset(skip).limit(limit).all()
@@ -99,6 +135,22 @@ def delete_produit(db: Session, produit_id: int):
         return db_produit
     return None
 
+# Dans app/crud.py
+def update_produit(db: Session, produit_id: int, produit_update: schemas.ProduitUpdate):
+    db_produit = db.query(models.Produit).filter(models.Produit.id == produit_id).first()
+    if not db_produit:
+        return None
+    update_data = produit_update.dict(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(db_produit, key, value)
+    db.add(db_produit)
+    db.commit()
+    db.refresh(db_produit)
+    return db_produit
+
+def search_produits(db: Session, query: str):
+    search_filter = models.Produit.nom_produit.ilike(f"%{query}%") | models.Produit.marque.ilike(f"%{query}%")
+    return db.query(models.Produit).filter(search_filter).all()
 
 def get_categories_produit(db: Session, skip: int = 0, limit: int = 100):
     """Récupère la liste de toutes les catégories de produits."""

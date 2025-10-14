@@ -6,6 +6,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import List
+import datetime
+import io
+import csv
+from fastapi.responses import StreamingResponse
 
 from . import models, schemas, crud, security, database
 
@@ -13,7 +17,7 @@ models.Base.metadata.create_all(bind=database.engine)
 app = FastAPI(title="API Source du Pays")
 
 # Configuration CORS
-origins = ["http://localhost", "http://localhost:3000"]
+origins = ["http://localhost", "http://localhost:3000", "http://10.105.50.117"]
 app.add_middleware(CORSMiddleware, allow_origins=origins, allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 
@@ -134,6 +138,27 @@ def create_client_by_admin(
     """Permet à un admin de créer un nouveau client."""
     return crud.create_client(db=db, client=client)
 
+# Dans app/main.py
+@app.put("/admin/clients/{client_id}", response_model=schemas.Client, tags=["Admin - Gestion Données"])
+def update_client(
+    client_id: int,
+    client_update: schemas.ClientUpdate,
+    db: Session = Depends(get_db),
+    admin_user: models.User = Depends(get_current_admin_user)
+):
+    updated_client = crud.update_client(db, client_id=client_id, client_update=client_update)
+    if not updated_client:
+        raise HTTPException(status_code=404, detail="Client non trouvé")
+    return updated_client
+    
+@app.get("/admin/clients/search", response_model=List[schemas.Client], tags=["Admin - Gestion Données"])
+def search_clients(
+    query: str = "",
+    db: Session = Depends(get_db),
+    admin_user: models.User = Depends(get_current_admin_user)
+):
+    return crud.search_clients(db, query=query)
+
 
 @app.delete("/admin/clients/{client_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["Admin - Gestion Données"])
 def delete_client(
@@ -149,6 +174,36 @@ def delete_client(
     if not deleted_client:
         raise HTTPException(status_code=404, detail="Client non trouvé")
     return 
+
+
+# Dans main.py, dans la section Admin
+@app.get("/admin/users/search", response_model=List[schemas.User], tags=["Admin - Gestion Utilisateurs"])
+def search_users(
+    query: str = "",
+    db: Session = Depends(get_db),
+    admin_user: models.User = Depends(get_current_admin_user)
+):
+    """Recherche des utilisateurs par nom ou email."""
+    if not query:
+        return db.query(models.User).all()
+    # On fait une recherche insensible à la casse
+    search_filter = models.User.nom.ilike(f"%{query}%") | models.User.email.ilike(f"%{query}%")
+    return db.query(models.User).filter(search_filter).all()
+
+# Dans app/main.py, dans la section des routes Admin
+
+@app.put("/admin/users/{user_id}", response_model=schemas.User, tags=["Admin - Gestion Utilisateurs"])
+def update_user(
+    user_id: int,
+    user_update: schemas.UserUpdate, # Le schéma pour les données de mise à jour
+    db: Session = Depends(get_db),
+    admin_user: models.User = Depends(get_current_admin_user)
+):
+    """Met à jour les informations d'un utilisateur."""
+    updated_user = crud.update_user(db, user_id=user_id, user_update=user_update)
+    if not updated_user:
+        raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
+    return updated_user
 
 @app.get("/admin/stats/total-produits", response_model=int, tags=["Admin - Statistiques"])
 def get_total_produits_count(
@@ -209,6 +264,26 @@ def delete_produit(
         raise HTTPException(status_code=404, detail="Produit non trouvé")
     return # On renvoie une réponse vide 204
 
+# Dans main.py
+@app.put("/admin/produits/{produit_id}", response_model=schemas.Produit, tags=["Admin - Gestion"])
+def update_produit(
+    produit_id: int,
+    produit_update: schemas.ProduitUpdate,
+    db: Session = Depends(get_db),
+    admin_user: models.User = Depends(get_current_admin_user)
+):
+    updated_produit = crud.update_produit(db, produit_id=produit_id, produit_update=produit_update)
+    if not updated_produit:
+        raise HTTPException(status_code=404, detail="Produit non trouvé")
+    return updated_produit
+    
+@app.get("/admin/produits/search", response_model=List[schemas.Produit], tags=["Admin - Gestion"])
+def search_produits(
+    query: str = "",
+    db: Session = Depends(get_db),
+    admin_user: models.User = Depends(get_current_admin_user)
+):
+    return crud.search_produits(db, query=query)
 
 @app.delete("/admin/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["Admin - Gestion Utilisateurs"])
 def delete_user(
@@ -235,11 +310,20 @@ def get_dashboard_stats(db: Session = Depends(get_db), current_user: models.User
     statuts_query = db.query(models.Visite.statut_validation, func.count(models.Visite.id)).join(models.Merchandiser).filter(models.Merchandiser.manager_id == superviseur_id).group_by(models.Visite.statut_validation).all()
     performance_query = db.query(models.User.nom, func.count(models.Visite.id)).join(models.Merchandiser, models.Merchandiser.user_id == models.User.id).join(models.Visite, models.Visite.merchandiser_id == models.Merchandiser.id).filter(models.Merchandiser.manager_id == superviseur_id).group_by(models.User.nom).all()
     return {"visitesEnAttente": visites_en_attente, "statutsData": dict(statuts_query), "performanceEquipe": dict(performance_query)}
+
 @app.get("/superviseur/visites/en-attente", response_model=List[schemas.VisiteInfo], tags=["Superviseur - Validation"])
 def read_visites_en_attente(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     if not current_user.superviseur_profile:
         raise HTTPException(status_code=403, detail="Accès réservé aux superviseurs")
     return db.query(models.Visite).join(models.Merchandiser).filter(models.Visite.statut_validation == 'soumis', models.Merchandiser.manager_id == current_user.superviseur_profile.id).all()
+
+@app.get("/admin/visites/en-attente/all", tags=["Admin - Rapports"])
+def read_all_visites_en_attente_pour_admin(
+    db: Session = Depends(get_db),
+    admin_user: models.User = Depends(get_current_admin_user)
+):
+    """Récupère TOUS les rapports en attente de TOUTES les équipes."""
+    return db.query(models.Visite).filter(models.Visite.statut_validation == 'soumis').all()
 
 @app.get("/superviseurs/", response_model=List[schemas.Superviseur], tags=["Admin - Gestion Utilisateurs"])
 def read_all_superviseurs(
@@ -250,6 +334,83 @@ def read_all_superviseurs(
     """Récupère la liste de tous les profils de superviseurs."""
     superviseurs = db.query(models.Superviseur).all()
     return superviseurs
+
+@app.get("/superviseur/visites/historique", response_model=List[schemas.VisiteInfo], tags=["Superviseur - Rapports"])
+def read_historique_visites_equipe(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Récupère l'historique des visites (validées ET rejetées) de l'équipe du superviseur."""
+    if not current_user.superviseur_profile:
+        raise HTTPException(status_code=403, detail="Accès réservé aux superviseurs")
+    
+    superviseur_id = current_user.superviseur_profile.id
+
+    visites = (
+        db.query(models.Visite)
+        .join(models.Merchandiser)
+        .filter(
+            # On ne cherche que le statut 'valide'
+            models.Visite.statut_validation == 'valide', 
+            models.Merchandiser.manager_id == superviseur_id
+        )
+        .order_by(models.Visite.date_visite.desc())
+        .all()
+    )
+    return visites
+
+
+@app.get("/superviseur/export/visites-validees", tags=["Superviseur - Rapports"])
+def export_visites_validees(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """
+    Exporte tous les rapports validés de l'équipe du superviseur au format CSV.
+    """
+    if not current_user.superviseur_profile:
+        raise HTTPException(status_code=403, detail="Accès réservé aux superviseurs")
+    
+    # 1. On récupère les données à exporter
+    visites_validees = (
+        db.query(models.Visite)
+        .join(models.Merchandiser)
+        .filter(
+            models.Visite.statut_validation == 'valide',
+            models.Merchandiser.manager_id == current_user.superviseur_profile.id
+        )
+        .all()
+    )
+
+    # 2. On prépare le fichier CSV en mémoire
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    # 3. On écrit la ligne d'en-tête
+    header = ['ID Visite', 'Date', 'Nom Merchandiser', 'Nom Client', 'Statut', 'Validé par ID']
+    writer.writerow(header)
+
+    # 4. On écrit une ligne pour chaque visite
+    for visite in visites_validees:
+        row = [
+            visite.id,
+            visite.date_visite,
+            visite.merchandiser.user.nom,
+            visite.client.nom_client,
+            visite.statut_validation,
+            visite.validateur_id
+        ]
+        writer.writerow(row)
+
+    output.seek(0) # On remet le curseur au début du fichier en mémoire
+
+    # 5. On renvoie le fichier
+    return StreamingResponse(
+        output,
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=rapports_valides_{datetime.date.today()}.csv"}
+    )
+
 
 # --- Routes de Visites ---
 @app.post("/visites/", response_model=schemas.Visite, tags=["Visites"])

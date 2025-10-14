@@ -1,20 +1,26 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Assurez-vous que cette IP est correcte !
-const API_URL = 'http://10.105.50.117:8000'; 
+const axiosInstance = axios.create(); // On ne met PAS de baseURL ici
 
-const axiosInstance = axios.create({
-  baseURL: API_URL,
-});
-
-// Intercepteur pour ajouter le token à chaque requête
+// --- INTERCEPTEUR DE REQUÊTE DYNAMIQUE ---
 axiosInstance.interceptors.request.use(
   async (config) => {
+    // 1. On récupère l'URL et le token AVANT CHAQUE APPEL
     const token = await AsyncStorage.getItem('userToken');
+    const apiUrl = await AsyncStorage.getItem('apiUrl');
+
+    if (!apiUrl) {
+      // Si aucune URL n'est configurée, on annule la requête
+      return Promise.reject(new Error("L'adresse du serveur n'est pas configurée."));
+    }
+
+    // 2. On configure dynamiquement l'URL et le token
+    config.baseURL = apiUrl;
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    
     return config;
   },
   (error) => {

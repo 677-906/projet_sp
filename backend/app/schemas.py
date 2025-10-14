@@ -23,6 +23,12 @@ class UserCreate(UserBase):
     password: str
     role_id: int
 
+class UserUpdate(BaseModel):
+    nom: Optional[str] = None
+    email: Optional[EmailStr] = None
+    role_id: Optional[int] = None
+    is_active: Optional[bool] = None # <-- Assurez-vous qu'il est là
+
 # --- Profils Métier (pour les routes de création dédiées) ---
 class SuperviseurCreate(BaseModel):
     user_id: int
@@ -59,6 +65,13 @@ class ProduitBase(BaseModel):
     nom_produit: str
     marque: Optional[str] = None
     categorie_id: int
+
+# Dans app/schemas.py
+class ProduitUpdate(BaseModel):
+    nom_produit: Optional[str] = None
+    marque: Optional[str] = None
+    categorie_id: Optional[int] = None
+
 class ProduitCreate(ProduitBase):
     pass
 
@@ -136,6 +149,13 @@ class Client(ClientBase):
     id: int
     class Config:
         from_attributes = True
+
+
+class ClientUpdate(BaseModel):
+    nom_client: Optional[str] = None
+    contact: Optional[str] = None
+    typologie: Optional[str] = None
+    localisation: Optional[str] = None
 
 class Produit(ProduitBase):
     id: int

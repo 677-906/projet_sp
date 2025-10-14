@@ -60,7 +60,6 @@ function DashboardPage({ onLogout }) {
     <div className="dashboard-container">
       <header className="dashboard-header">
         <h1>Tableau de Bord Superviseur</h1>
-        <button onClick={onLogout} className="logout-button">Se Déconnecter</button>
       </header>
       
       <main className="dashboard-content">

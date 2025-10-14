@@ -7,7 +7,7 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native'; // Il manque cet import !
 
 // --- À CONFIGURER ---
-const API_URL = 'http://10.105.50.117:8000'; 
+const API_URL = 'http://10.89.65.117:8000'; 
 // --------------------
 
 // --- CORRECTION N°1 : ClientItem doit accepter 'client' et 'onPress' ---

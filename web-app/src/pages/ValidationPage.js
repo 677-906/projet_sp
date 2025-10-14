@@ -33,12 +33,13 @@ function ValidationPage() {
       
       <main className="page-content">
         {visites.length > 0 ? (
-          <table className="data-table">
+           <table className="data-table">
             <thead>
               <tr>
                 <th>Date</th>
-                <th>Merchandiser ID</th>
-                <th>Client ID</th>
+                {/* On change les en-têtes */}
+                <th>Merchandiser</th>
+                <th>Client</th>
                 <th>Statut</th>
                 <th>Actions</th>
               </tr>
@@ -47,13 +48,14 @@ function ValidationPage() {
               {visites.map(visite => (
                 <tr key={visite.id}>
                   <td>{new Date(visite.date_visite).toLocaleDateString()}</td>
-                  <td>{visite.merchandiser_id}</td>
-                  <td>{visite.client_id}</td>
+                  {/* On affiche les noms depuis les objets imbriqués */}
+                  <td>{visite.merchandiser?.user?.nom}</td>
+                  <td>{visite.client?.nom_client}</td>
                   <td>
                     <span className="status-badge pending">{visite.statut_validation}</span>
                   </td>
                   <td>
-                    <button onClick={() => navigate(`/visite/${visite.id}`)} className="action-button view-button">
+                    <button onClick={() => navigate(`../visite/${visite.id}`)} className="action-button view-button">
                       Consulter & Décider
                     </button>
                   </td>

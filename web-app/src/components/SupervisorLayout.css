@@ -1,0 +1,68 @@
+/* src/components/SupervisorLayout.css */
+
+.supervisor-layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* Menu latéral avec une couleur bleue */
+.supervisor-sidebar {
+  width: 250px;
+  background-color: #007bff; /* Bleu Primaire */
+  color: white;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+.supervisor-sidebar .sidebar-header h3 {
+  text-align: center;
+  margin-top: 0;
+  padding-bottom: 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.supervisor-sidebar .nav-list {
+  list-style: none;
+  padding: 0;
+  margin-top: 30px;
+  flex-grow: 1;
+}
+
+.supervisor-sidebar .nav-list a {
+  color: #e9ecef;
+  text-decoration: none;
+  display: block;
+  padding: 12px 15px;
+  border-radius: 5px;
+  margin-bottom: 5px;
+  transition: background-color 0.2s;
+}
+
+/* Style pour le lien actif */
+.supervisor-sidebar .nav-list a.active {
+  background-color: #0056b3; /* Bleu plus foncé */
+  color: white;
+  font-weight: bold;
+}
+
+.supervisor-sidebar .nav-list a:hover {
+  background-color: #0069d9;
+}
+
+.supervisor-content {
+  flex-grow: 1;
+  background-color: #f8f9fa; /* Fond principal gris clair */
+}
+
+.supervisor-sidebar .sidebar-logout-button {
+  background-color: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 1px solid white;
+  padding: 10px;
+  width: 100%;
+  margin-top: 40px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: bold;
+}

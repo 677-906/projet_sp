@@ -6,7 +6,7 @@ import axiosInstance from '../api/axiosConfig';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 
 // --- À CONFIGURER ---
-const API_URL = 'http://10.105.50.117:8000'; 
+const API_URL = 'http://192.168.43.117:8000'; 
 // --------------------
 
 export default function HomeScreen() {
