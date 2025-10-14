@@ -17,8 +17,13 @@ from . import models, schemas, crud, security, database
 models.Base.metadata.create_all(bind=database.engine)
 app = FastAPI(title="API Source du Pays")
 
+import os
+
 # Configuration CORS
-origins = ["http://localhost", "http://localhost:3000", "http://10.105.50.117"]
+# On récupère les origines depuis une variable d'environnement, avec une valeur par défaut
+origins_str = os.getenv("CORS_ORIGINS", "http://localhost,http://localhost:3000,http://10.105.50.117")
+origins = [origin.strip() for origin in origins_str.split(',')]
+
 app.add_middleware(CORSMiddleware, allow_origins=origins, allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 
