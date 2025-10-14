@@ -111,11 +111,11 @@ class VisiteCreate(VisiteBase):
     details_produits: List[DetailVisiteProduitBase] = []
     veilles_concurrentielles: List[VeilleConcurrentielleBase] = []
 
-class VisiteRejection(BaseModel):
-    rejection_reason: str
+class PushTokenPayload(BaseModel):
+    push_token: str
 
-class UserFCMTokenUpdate(BaseModel):
-    fcm_token: str
+class VisiteRejectionPayload(BaseModel):
+    rejection_reason: str
 
 # ==============================================================================
 # 2. SCHÉMAS DE RÉPONSE (Utilisés pour formater les données sortantes)

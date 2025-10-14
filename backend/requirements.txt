@@ -1,4 +1,4 @@
-﻿fastapi
+fastapi
 uvicorn[standard]
 sqlalchemy
 psycopg2-binary
@@ -7,3 +7,4 @@ python-jose[cryptography]
 passlib[bcrypt]
 email-validator
 python-multipart
+exponent-server-sdk==2.2.0

@@ -88,17 +88,19 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db:
 def read_users_me(current_user: models.User = Depends(get_current_user)):
     return current_user
 
-@app.put("/users/me/fcm-token", response_model=schemas.User, tags=["Authentification"])
-def update_fcm_token(
-    token_data: schemas.UserFCMTokenUpdate,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
+@app.put("/users/me/push-token", status_code=status.HTTP_204_NO_CONTENT, tags=["Authentification"])
+def update_push_token(
+    payload: schemas.PushTokenPayload,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
-    """Met à jour le token FCM de l'utilisateur courant."""
-    current_user.fcm_token = token_data.fcm_token
+    """
+    Met à jour le token de notification push de l'utilisateur.
+    """
+    current_user.push_token = payload.push_token
     db.commit()
-    db.refresh(current_user)
-    return current_user
+    return
+
 @app.get("/roles/", response_model=List[schemas.Role], tags=["Données de Référence"])
 def read_roles(db: Session = Depends(get_db)):
     return db.query(models.Role).all()
@@ -127,7 +129,7 @@ def read_visites_validees(
     visites = (
         db.query(models.Visite)
         .options(
-            joinedload(models.Visite.validateur).joinedload(models.Superviseur.user).joinedload(models.User.role),
+            joinedload(models.Visite.validateur).joinedload(models.Superviseur.user),
             joinedload(models.Visite.merchandiser).joinedload(models.Merchandiser.user)
         )
         .filter(models.Visite.statut_validation == 'valide')
@@ -448,24 +450,22 @@ def valider_visite(
     current_user: models.User = Depends(get_current_user)
 ):
     """Change le statut d'une visite à 'valide'."""
-    # On vérifie que l'utilisateur est bien un superviseur
     if not current_user.superviseur_profile:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Accès réservé aux superviseurs")
-    # 1. On récupère la visite depuis la base de données
-    db_visite = db.query(models.Visite).filter(models.Visite.id == visite_id).first()
 
-    # 2. On vérifie si la visite existe
+    db_visite = db.query(models.Visite).filter(models.Visite.id == visite_id).first()
     if not db_visite:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Visite non trouvée")
 
     db_visite.statut_validation = 'valide'
     db_visite.validateur_id = current_user.superviseur_profile.id
     
-    if db_visite.merchandiser and db_visite.merchandiser.user and db_visite.merchandiser.user.fcm_token:
-        notifications.send_fcm_notification(
-            token=db_visite.merchandiser.user.fcm_token,
+    merchandiser_user = db_visite.merchandiser.user
+    if merchandiser_user.push_token:
+        notifications.send_push_message(
+            token=merchandiser_user.push_token,
             title="Rapport Validé",
-            body=f"Bon travail ! Votre rapport pour {db_visite.client.nom_client} a été validé."
+            message=f"Votre rapport pour le client {db_visite.client.nom_client} a été validé."
         )
 
     db.commit()
@@ -476,31 +476,28 @@ def valider_visite(
 @app.put("/visites/{visite_id}/rejeter", response_model=schemas.Visite, tags=["Superviseur - Validation"])
 def rejeter_visite(
     visite_id: int,
-    rejection_data: schemas.VisiteRejection,
+    payload: schemas.VisiteRejectionPayload,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
     """Change le statut d'une visite à 'rejete'."""
-    # On vérifie que l'utilisateur est bien un superviseur
     if not current_user.superviseur_profile:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Accès réservé aux superviseurs")
 
-    # 1. On récupère la visite depuis la base de données
     db_visite = db.query(models.Visite).filter(models.Visite.id == visite_id).first()
-
-    # 2. On vérifie si la visite existe
     if not db_visite:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Visite non trouvée")
 
     db_visite.statut_validation = 'rejete'
-    db_visite.rejection_reason = rejection_data.rejection_reason
     db_visite.validateur_id = current_user.superviseur_profile.id
+    db_visite.rejection_reason = payload.rejection_reason
     
-    if db_visite.merchandiser and db_visite.merchandiser.user and db_visite.merchandiser.user.fcm_token:
-        notifications.send_fcm_notification(
-            token=db_visite.merchandiser.user.fcm_token,
+    merchandiser_user = db_visite.merchandiser.user
+    if merchandiser_user.push_token:
+        notifications.send_push_message(
+            token=merchandiser_user.push_token,
             title="Rapport Rejeté",
-            body=f"Votre rapport pour {db_visite.client.nom_client} a été rejeté. Raison: {rejection_data.rejection_reason}"
+            message=f"Votre rapport pour {db_visite.client.nom_client} a été rejeté. Raison: {payload.rejection_reason}"
         )
 
     db.commit()

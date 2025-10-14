@@ -1,36 +1,31 @@
-import requests
-import json
-from typing import Optional
-import os
+from exponent_server_sdk import (
+    DeviceNotRegisteredError,
+    PushClient,
+    PushMessage,
+    PushServerError,
+)
+from requests.exceptions import ConnectionError, HTTPError
 
-FCM_API_KEY = os.getenv("FCM_API_KEY")
-FCM_SEND_URL = "https://fcm.googleapis.com/fcm/send"
-
-def send_fcm_notification(token: str, title: str, body: str, data: Optional[dict] = None):
-    if not FCM_API_KEY:
-        print("FCM_API_KEY not configured. Skipping notification.")
-        return
+def send_push_message(token: str, title: str, message: str, extra: dict = None):
+    """
+    Sends a push notification to a specific token.
+    """
     if not token:
-        print("No FCM token provided, skipping notification.")
+        print("No push token provided, skipping notification.")
         return
-
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"key={FCM_API_KEY}",
-    }
-
-    notification_payload = {
-        "to": token,
-        "notification": {
-            "title": title,
-            "body": body,
-        },
-        "data": data or {},
-    }
 
     try:
-        response = requests.post(FCM_SEND_URL, headers=headers, data=json.dumps(notification_payload))
-        response.raise_for_status()  # Raise an exception for bad status codes
-        print(f"Successfully sent notification: {response.json()}")
-    except requests.exceptions.RequestException as e:
-        print(f"Error sending FCM notification: {e}")
+        response = PushClient().publish(
+            PushMessage(to=token, title=title, body=message, data=extra)
+        )
+    except PushServerError as exc:
+        print(f"Push server error: {exc}")
+    except (ConnectionError, HTTPError) as exc:
+        print(f"Connection error: {exc}")
+
+    try:
+        response.validate_response()
+    except DeviceNotRegisteredError:
+        print(f"Device not registered for push notifications: {token}")
+    except Exception as exc:
+        print(f"An unexpected error occurred: {exc}")

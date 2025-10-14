@@ -26,7 +26,7 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(TIMESTAMP, default=datetime.datetime.utcnow)
     role_id = Column(Integer, ForeignKey('roles.id'))
-    fcm_token = Column(String(255), nullable=True)
+    push_token = Column(String(255), nullable=True)
     
     # --- RELATIONS ---
     role = relationship("Role", back_populates="users")
