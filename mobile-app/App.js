@@ -7,7 +7,7 @@ import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import { Alert, Platform } from 'react-native';
-import api from './api/api'; // Assurez-vous que le chemin est correct
+import api from './api/axiosConfig'; // Assurez-vous que le chemin est correct
 
 import LoginScreen from './screens/LoginScreen';
 import HomeScreen from './screens/HomeScreen';
@@ -45,6 +45,7 @@ async function registerForPushNotificationsAsync() {
     try {
       const projectId = Constants.expoConfig.extra.eas.projectId;
       token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
+      console.log("Expo Push Token:", token);
     } catch (e) {
       Alert.alert('Erreur de Token', `Une erreur est survenue lors de la récupération du token : ${e}`);
     }

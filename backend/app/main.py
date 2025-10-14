@@ -97,8 +97,10 @@ def update_push_token(
     """
     Met à jour le token de notification push de l'utilisateur.
     """
+    print(f"Received push token for user {current_user.email}: {payload.push_token}")
     current_user.push_token = payload.push_token
     db.commit()
+    print(f"Push token for user {current_user.email} updated successfully.")
     return
 
 @app.get("/roles/", response_model=List[schemas.Role], tags=["Données de Référence"])
