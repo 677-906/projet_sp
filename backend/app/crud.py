@@ -2,6 +2,7 @@
 
 from sqlalchemy.orm import Session, joinedload
 from . import models, schemas, security
+import datetime
 
 # --- Utilisateurs et Profils ---
 def get_user_by_email(db: Session, email: str):
@@ -177,6 +178,10 @@ def create_concurrent(db: Session, concurrent: schemas.ConcurrentCreate):
 
 # --- Visites ---
 def create_visite(db: Session, visite: schemas.VisiteCreate, merchandiser_id: int):
+    # Conversion des datetime en objets time
+    heure_debut_time = datetime.datetime.fromisoformat(visite.heure_debut).time() if visite.heure_debut else None
+    heure_fin_time = datetime.datetime.fromisoformat(visite.heure_fin).time() if visite.heure_fin else None
+
     # On extrait les champs étendus du schéma et on les passe au modèle
     db_visite = models.Visite(
         client_id=visite.client_id,
@@ -184,8 +189,8 @@ def create_visite(db: Session, visite: schemas.VisiteCreate, merchandiser_id: in
         observations_generales=visite.observations_generales,
         fifo_respecte=visite.fifo_respecte,
         planogramme_respecte=visite.planogramme_respecte,
-        heure_debut=visite.heure_debut,
-        heure_fin=visite.heure_fin,
+        heure_debut=heure_debut_time,
+        heure_fin=heure_fin_time,
         type_outil=visite.type_outil,
         marque_support=visite.marque_support,
         etat_support=visite.etat_support,
