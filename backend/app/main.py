@@ -366,13 +366,14 @@ def export_visites_validees(
     current_user: models.User = Depends(get_current_user)
 ):
     """
-    Exporte les rapports validés avec une ligne par détail pour une meilleure lisibilité.
+    Exporte tous les rapports validés de l'équipe du superviseur dans un CSV
+    structuré avec des colonnes dynamiques pour les détails.
     """
     if not current_user.superviseur_profile:
         raise HTTPException(status_code=403, detail="Accès réservé aux superviseurs")
 
-    # 1. Récupérer les données avec eager loading
-    visites = (
+    # 1. Récupérer les données avec eager loading pour les relations
+    visites_validees = (
         db.query(models.Visite)
         .join(models.Merchandiser)
         .filter(
@@ -390,96 +391,113 @@ def export_visites_validees(
         .all()
     )
 
-    if not visites:
+    if not visites_validees:
         raise HTTPException(status_code=404, detail="Aucune visite validée à exporter")
 
+    # 2. Déterminer le nombre maximum de colonnes nécessaires pour chaque type de détail
+    max_releves = 0
+    max_details = 0
+    max_veilles = 0
+    for v in visites_validees:
+        if len(v.releves_stock) > max_releves:
+            max_releves = len(v.releves_stock)
+        if len(v.details_produits) > max_details:
+            max_details = len(v.details_produits)
+        if len(v.veilles_concurrentielles) > max_veilles:
+            max_veilles = len(v.veilles_concurrentielles)
+
+    # 3. Construire l'en-tête du CSV de manière dynamique
+    header = [
+        'ID Visite', 'Date Visite', 'Statut Validation', 'ID Validateur',
+        'Observations Générales', 'FIFO Respecté', 'Planogramme Respecté',
+        'ID Client', 'Nom Client', 'Contact Client', 'Typologie', 'Localisation',
+        'ID Merchandiser', 'Nom Merchandiser', 'Email Merchandiser'
+    ]
+
+    for i in range(1, max_releves + 1):
+        header.extend([
+            f'Relevé {i} - Produit', f'Relevé {i} - Qté Stock',
+            f'Relevé {i} - Rupture', f'Relevé {i} - Type Rupture'
+        ])
+    for i in range(1, max_details + 1):
+        header.extend([
+            f'Détail {i} - Produit', f'Détail {i} - Type',
+            f'Détail {i} - Quantité', f'Détail {i} - Observation'
+        ])
+    for i in range(1, max_veilles + 1):
+        header.extend([
+            f'Veille {i} - Concurrent', f'Veille {i} - Marque',
+            f'Veille {i} - Nb Packs', f'Veille {i} - Activité', f'Veille {i} - Mécanisme'
+        ])
+
+    # 4. Préparer le fichier CSV en mémoire
     output = io.StringIO()
     writer = csv.writer(output)
-
-    # 2. Définir un en-tête complet et clair
-    header = [
-        # Infos générales de la visite
-        'ID Visite', 'Date Visite', 'Nom Client', 'Localisation Client', 'Nom Merchandiser',
-        'Observations Générales', 'FIFO Respecté', 'Planogramme Respecté',
-        # Type de détail sur la ligne
-        'Type de Ligne',
-        # Champs pour Relevé de Stock
-        'Produit (Stock)', 'Quantité en Stock', 'En Rupture', 'Type de Rupture',
-        # Champs pour Détail Produit (Commande/Incident)
-        'Produit (Détail)', 'Type de Détail', 'Quantité', 'Observation du Détail',
-        # Champs pour Veille Concurrentielle
-        'Concurrent', 'Marque', 'Nombre de Packs', 'Activité Observée', 'Mécanisme'
-    ]
     writer.writerow(header)
 
-    # 3. Traiter chaque visite
-    for visite in visites:
-        # Préparer la base de la ligne, commune à tous les détails de cette visite
-        base_row = {
-            'ID Visite': visite.id,
-            'Date Visite': visite.date_visite.isoformat() if visite.date_visite else '',
-            'Nom Client': visite.client.nom_client,
-            'Localisation Client': visite.client.localisation,
-            'Nom Merchandiser': visite.merchandiser.user.nom,
-            'Observations Générales': visite.observations_generales,
-            'FIFO Respecté': 'Oui' if visite.fifo_respecte else 'Non',
-            'Planogramme Respecté': 'Oui' if visite.planogramme_respecte else 'Non',
-        }
+    # 5. Remplir le CSV ligne par ligne
+    for visite in visites_validees:
+        row_base = [
+            visite.id,
+            visite.date_visite.isoformat() if visite.date_visite else '',
+            visite.statut_validation,
+            visite.validateur_id,
+            visite.observations_generales,
+            'Oui' if visite.fifo_respecte else 'Non',
+            'Oui' if visite.planogramme_respecte else 'Non',
+            visite.client.id,
+            visite.client.nom_client,
+            visite.client.contact,
+            visite.client.typologie,
+            visite.client.localisation,
+            visite.merchandiser.id,
+            visite.merchandiser.user.nom,
+            visite.merchandiser.user.email
+        ]
 
-        has_details = False
+        # Ajouter les détails en remplissant avec des chaînes vides si nécessaire
+        releves_flat = []
+        for i in range(max_releves):
+            if i < len(visite.releves_stock):
+                rs = visite.releves_stock[i]
+                releves_flat.extend([
+                    rs.produit.nom_produit, rs.quantite_en_stock,
+                    'Oui' if rs.est_en_rupture else 'Non', rs.type_rupture
+                ])
+            else:
+                releves_flat.extend(['', '', '', ''])
 
-        # Lignes pour les relevés de stock
-        for rs in visite.releves_stock:
-            has_details = True
-            row = base_row.copy()
-            row.update({
-                'Type de Ligne': 'Relevé de Stock',
-                'Produit (Stock)': rs.produit.nom_produit,
-                'Quantité en Stock': rs.quantite_en_stock,
-                'En Rupture': 'Oui' if rs.est_en_rupture else 'Non',
-                'Type de Rupture': rs.type_rupture,
-            })
-            writer.writerow([row.get(h, '') for h in header])
+        details_flat = []
+        for i in range(max_details):
+            if i < len(visite.details_produits):
+                dp = visite.details_produits[i]
+                details_flat.extend([
+                    dp.produit.nom_produit, dp.type_detail,
+                    dp.quantite, dp.observation
+                ])
+            else:
+                details_flat.extend(['', '', '', ''])
 
-        # Lignes pour les détails produits
-        for dp in visite.details_produits:
-            has_details = True
-            row = base_row.copy()
-            row.update({
-                'Type de Ligne': 'Détail Produit',
-                'Produit (Détail)': dp.produit.nom_produit,
-                'Type de Détail': dp.type_detail,
-                'Quantité': dp.quantite,
-                'Observation du Détail': dp.observation,
-            })
-            writer.writerow([row.get(h, '') for h in header])
+        veilles_flat = []
+        for i in range(max_veilles):
+            if i < len(visite.veilles_concurrentielles):
+                vc = visite.veilles_concurrentielles[i]
+                veilles_flat.extend([
+                    vc.concurrent.nom, vc.marque, vc.nombre_packs,
+                    vc.activite_observee, vc.mecanisme
+                ])
+            else:
+                veilles_flat.extend(['', '', '', '', ''])
 
-        # Lignes pour la veille concurrentielle
-        for vc in visite.veilles_concurrentielles:
-            has_details = True
-            row = base_row.copy()
-            row.update({
-                'Type de Ligne': 'Veille Concurrentielle',
-                'Concurrent': vc.concurrent.nom,
-                'Marque': vc.marque,
-                'Nombre de Packs': vc.nombre_packs,
-                'Activité Observée': vc.activite_observee,
-                'Mécanisme': vc.mecanisme,
-            })
-            writer.writerow([row.get(h, '') for h in header])
-
-        # Si une visite n'a aucun détail, on écrit quand même une ligne avec les infos générales
-        if not has_details:
-            row = base_row.copy()
-            row['Type de Ligne'] = 'Visite (sans détails)'
-            writer.writerow([row.get(h, '') for h in header])
-
+        writer.writerow(row_base + releves_flat + details_flat + veilles_flat)
 
     output.seek(0)
+
+    # 6. Renvoyer la réponse
     return StreamingResponse(
         output,
         media_type="text/csv",
-        headers={"Content-Disposition": f"attachment; filename=rapport_visites_detaille_{datetime.date.today()}.csv"}
+        headers={"Content-Disposition": f"attachment; filename=rapports_detailles_{datetime.date.today()}.csv"}
     )
 
 
