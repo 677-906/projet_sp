@@ -367,7 +367,7 @@ def export_visites_validees(
 ):
     """
     Exporte tous les rapports validés de l'équipe du superviseur dans un CSV
-    structuré avec des colonnes dynamiques pour les détails.
+    structuré avec des colonnes dynamiques pour les détails et un délimiteur '|'.
     """
     if not current_user.superviseur_profile:
         raise HTTPException(status_code=403, detail="Accès réservé aux superviseurs")
@@ -430,9 +430,9 @@ def export_visites_validees(
             f'Veille {i} - Nb Packs', f'Veille {i} - Activité', f'Veille {i} - Mécanisme'
         ])
 
-    # 4. Préparer le fichier CSV en mémoire
+    # 4. Préparer le fichier CSV en mémoire avec le délimiteur '|'
     output = io.StringIO()
-    writer = csv.writer(output)
+    writer = csv.writer(output, delimiter='|')
     writer.writerow(header)
 
     # 5. Remplir le CSV ligne par ligne
