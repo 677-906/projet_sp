@@ -2,7 +2,7 @@
 
 from pydantic import BaseModel, EmailStr
 from typing import Optional, List
-from datetime import date, datetime
+from datetime import date, datetime, time
 
 # ==============================================================================
 # 1. SCHÉMAS DE BASE ET DE CRÉATION (Utilisés pour valider les données entrantes)
@@ -114,8 +114,8 @@ class VisiteBase(BaseModel):
     observations_generales: str = ''
     fifo_respecte: bool = True
     planogramme_respecte: bool = True
-    heure_debut: Optional[datetime] = None
-    heure_fin: Optional[datetime] = None
+    heure_debut: Optional[time] = None
+    heure_fin: Optional[time] = None
     type_outil: Optional[str] = None
     marque_support: Optional[str] = None
     etat_support: Optional[str] = None
