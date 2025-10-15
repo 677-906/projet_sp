@@ -9,7 +9,6 @@ from typing import List
 import datetime
 import io
 import csv
-import json
 from fastapi.responses import StreamingResponse
 
 from . import models, schemas, crud, security, database
@@ -367,8 +366,8 @@ def export_visites_validees(
     current_user: models.User = Depends(get_current_user)
 ):
     """
-    Exporte tous les rapports validés de l'équipe du superviseur au format CSV,
-    avec tous les détails de la visite.
+    Exporte tous les rapports validés de l'équipe du superviseur dans un CSV
+    structuré avec des colonnes dynamiques pour les détails.
     """
     if not current_user.superviseur_profile:
         raise HTTPException(status_code=403, detail="Accès réservé aux superviseurs")
@@ -388,66 +387,64 @@ def export_visites_validees(
             joinedload(models.Visite.details_produits).joinedload(models.DetailVisiteProduit.produit),
             joinedload(models.Visite.veilles_concurrentielles).joinedload(models.VeilleConcurrentielle.concurrent)
         )
+        .order_by(models.Visite.date_visite.desc())
         .all()
     )
 
+    if not visites_validees:
+        raise HTTPException(status_code=404, detail="Aucune visite validée à exporter")
+
+    # 2. Déterminer le nombre maximum de colonnes nécessaires pour chaque type de détail
+    max_releves = 0
+    max_details = 0
+    max_veilles = 0
+    for v in visites_validees:
+        if len(v.releves_stock) > max_releves:
+            max_releves = len(v.releves_stock)
+        if len(v.details_produits) > max_details:
+            max_details = len(v.details_produits)
+        if len(v.veilles_concurrentielles) > max_veilles:
+            max_veilles = len(v.veilles_concurrentielles)
+
+    # 3. Construire l'en-tête du CSV de manière dynamique
+    header = [
+        'ID Visite', 'Date Visite', 'Statut Validation', 'ID Validateur',
+        'Observations Générales', 'FIFO Respecté', 'Planogramme Respecté',
+        'ID Client', 'Nom Client', 'Contact Client', 'Typologie', 'Localisation',
+        'ID Merchandiser', 'Nom Merchandiser', 'Email Merchandiser'
+    ]
+
+    for i in range(1, max_releves + 1):
+        header.extend([
+            f'Relevé {i} - Produit', f'Relevé {i} - Qté Stock',
+            f'Relevé {i} - Rupture', f'Relevé {i} - Type Rupture'
+        ])
+    for i in range(1, max_details + 1):
+        header.extend([
+            f'Détail {i} - Produit', f'Détail {i} - Type',
+            f'Détail {i} - Quantité', f'Détail {i} - Observation'
+        ])
+    for i in range(1, max_veilles + 1):
+        header.extend([
+            f'Veille {i} - Concurrent', f'Veille {i} - Marque',
+            f'Veille {i} - Nb Packs', f'Veille {i} - Activité', f'Veille {i} - Mécanisme'
+        ])
+
+    # 4. Préparer le fichier CSV en mémoire
     output = io.StringIO()
     writer = csv.writer(output)
-
-    # 2. Définir un en-tête de CSV complet
-    header = [
-        'ID Visite', 'Date Visite', 'Statut Validation', 'Validateur ID',
-        'Observations Générales', 'FIFO Respecté', 'Planogramme Respecté',
-        'ID Client', 'Nom Client', 'Contact Client', 'Typologie Client', 'Localisation Client',
-        'ID Merchandiser', 'Nom Merchandiser', 'Email Merchandiser',
-        'Relevés de Stock (JSON)', 'Détails Produits (JSON)', 'Veilles Concurrentielles (JSON)'
-    ]
     writer.writerow(header)
 
-    # 3. Fonction pour convertir un objet SQLAlchemy en dictionnaire
-    def to_dict(obj, fields):
-        return {field: getattr(obj, field, None) for field in fields}
-
-    # 4. Itérer sur les visites et construire les lignes du CSV
+    # 5. Remplir le CSV ligne par ligne
     for visite in visites_validees:
-        # Sérialiser les listes d'objets en JSON
-        releves_stock_json = json.dumps([
-            {
-                "produit": rs.produit.nom_produit,
-                "quantite_en_stock": rs.quantite_en_stock,
-                "est_en_rupture": rs.est_en_rupture,
-                "type_rupture": rs.type_rupture
-            } for rs in visite.releves_stock
-        ], ensure_ascii=False)
-
-        details_produits_json = json.dumps([
-            {
-                "produit": dp.produit.nom_produit,
-                "type_detail": dp.type_detail,
-                "quantite": dp.quantite,
-                "observation": dp.observation
-            } for dp in visite.details_produits
-        ], ensure_ascii=False)
-
-        veilles_concurrentielles_json = json.dumps([
-            {
-                "concurrent": vc.concurrent.nom,
-                "marque": vc.marque,
-                "nombre_packs": vc.nombre_packs,
-                "activite_observee": vc.activite_observee,
-                "mecanisme": vc.mecanisme
-            } for vc in visite.veilles_concurrentielles
-        ], ensure_ascii=False)
-
-        # Construire la ligne
-        row = [
+        row_base = [
             visite.id,
-            visite.date_visite.isoformat() if visite.date_visite else None,
+            visite.date_visite.isoformat() if visite.date_visite else '',
             visite.statut_validation,
             visite.validateur_id,
             visite.observations_generales,
-            visite.fifo_respecte,
-            visite.planogramme_respecte,
+            'Oui' if visite.fifo_respecte else 'Non',
+            'Oui' if visite.planogramme_respecte else 'Non',
             visite.client.id,
             visite.client.nom_client,
             visite.client.contact,
@@ -455,19 +452,52 @@ def export_visites_validees(
             visite.client.localisation,
             visite.merchandiser.id,
             visite.merchandiser.user.nom,
-            visite.merchandiser.user.email,
-            releves_stock_json,
-            details_produits_json,
-            veilles_concurrentielles_json
+            visite.merchandiser.user.email
         ]
-        writer.writerow(row)
+
+        # Ajouter les détails en remplissant avec des chaînes vides si nécessaire
+        releves_flat = []
+        for i in range(max_releves):
+            if i < len(visite.releves_stock):
+                rs = visite.releves_stock[i]
+                releves_flat.extend([
+                    rs.produit.nom_produit, rs.quantite_en_stock,
+                    'Oui' if rs.est_en_rupture else 'Non', rs.type_rupture
+                ])
+            else:
+                releves_flat.extend(['', '', '', ''])
+
+        details_flat = []
+        for i in range(max_details):
+            if i < len(visite.details_produits):
+                dp = visite.details_produits[i]
+                details_flat.extend([
+                    dp.produit.nom_produit, dp.type_detail,
+                    dp.quantite, dp.observation
+                ])
+            else:
+                details_flat.extend(['', '', '', ''])
+
+        veilles_flat = []
+        for i in range(max_veilles):
+            if i < len(visite.veilles_concurrentielles):
+                vc = visite.veilles_concurrentielles[i]
+                veilles_flat.extend([
+                    vc.concurrent.nom, vc.marque, vc.nombre_packs,
+                    vc.activite_observee, vc.mecanisme
+                ])
+            else:
+                veilles_flat.extend(['', '', '', '', ''])
+
+        writer.writerow(row_base + releves_flat + details_flat + veilles_flat)
 
     output.seek(0)
 
+    # 6. Renvoyer la réponse
     return StreamingResponse(
         output,
         media_type="text/csv",
-        headers={"Content-Disposition": f"attachment; filename=rapports_detailles_visites_{datetime.date.today()}.csv"}
+        headers={"Content-Disposition": f"attachment; filename=rapports_detailles_{datetime.date.today()}.csv"}
     )
 
 
