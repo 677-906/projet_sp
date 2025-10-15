@@ -1,6 +1,6 @@
 # Fichier: app/schemas.py - VERSION FINALE COMPLÈTE ET INTÉGRALE
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, field_validator
 from typing import Optional, List
 from datetime import date, datetime, time
 
@@ -121,6 +121,15 @@ class VisiteBase(BaseModel):
     etat_support: Optional[str] = None
     ob_planogramme: Optional[str] = None
     sp: Optional[int] = None
+
+    @field_validator('heure_debut', 'heure_fin', mode='before')
+    @classmethod
+    def format_time(cls, v):
+        if isinstance(v, str):
+            return datetime.fromisoformat(v.replace('Z', '+00:00')).time()
+        if isinstance(v, datetime):
+            return v.time()
+        return v
     op: Optional[int] = None
     autres: Optional[int] = None
     bg_sp: Optional[int] = None
