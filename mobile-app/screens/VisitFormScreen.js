@@ -79,6 +79,38 @@ export default function VisitFormScreen({ route, navigation }) {
   const [fifo, setFifo] = useState(true);
   const [planogramme, setPlanogramme] = useState(true);
   const [observations, setObservations] = useState('');
+
+  // --- Nouveaux champs pour le rapport étendu ---
+  const [typeOutil, setTypeOutil] = useState('');
+  const [marqueSupport, setMarqueSupport] = useState('');
+  const [etatSupport, setEtatSupport] = useState('');
+  const [obPlanogramme, setObPlanogramme] = useState('');
+
+  // --- Nouveaux champs pour les quantités par catégorie ---
+  const [sp, setSp] = useState('');
+  const [op, setOp] = useState('');
+  const [vital, setVital] = useState('');
+  const [tangui, setTangui] = useState('');
+  const [madiba, setMadiba] = useState('');
+  const [ceilo, setCeilo] = useState('');
+  const [sano, setSano] = useState('');
+  const [aquabelle, setAquabelle] = useState('');
+  const [ultimeLight, setUltimeLight] = useState('');
+  const [valclair, setValclair] = useState('');
+  const [autres, setAutres] = useState('');
+  const [bgSp, setBgSp] = useState('');
+  const [bgBc, setBgBc] = useState('');
+  const [bgElim, setBgElim] = useState('');
+  const [bgGracedom, setBgGracedom] = useState('');
+  const [bgUcb, setBgUcb] = useState('');
+  const [brasaf, setBrasaf] = useState('');
+  const [autresBg, setAutresBg] = useState('');
+  const [edSp, setEdSp] = useState('');
+  const [edBc, setEdBc] = useState('');
+  const [edElim, setEdElim] = useState('');
+  const [autresEd, setAutresEd] = useState('');
+  // -------------------------------------------
+
   const [produitsForPicker, setProduitsForPicker] = useState([]);
   const [concurrentsForPicker, setConcurrentsForPicker] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -108,10 +140,39 @@ export default function VisitFormScreen({ route, navigation }) {
     const veilles_list = veilles.filter(i => i.id_field).map(i => ({ concurrent_id: i.id_field, nombre_packs: parseInt(i.packs) || 0, activite_observee: i.activite || '', mecanisme: i.mecanisme || '', marque: '' }));
 
     const visiteData = {
-      client_id: clientId, fifo, planogramme, observations_generales: observations,
+      client_id: clientId,
+      fifo_respecte: fifo,
+      planogramme_respecte: planogramme,
+      observations_generales: observations,
       releves_stock: releves_stock_list,
       details_produits: [...incidents_list, ...commandes_list],
       veilles_concurrentielles: veilles_list,
+
+      // --- Ajout des nouveaux champs ---
+      type_outil: typeOutil,
+      marque_support: marqueSupport,
+      etat_support: etatSupport,
+      ob_planogramme: obPlanogramme,
+
+      sp: parseInt(sp, 10) || 0,
+      op: parseInt(op, 10) || 0,
+      autres: parseInt(autres, 10) || 0,
+
+      // Les marques spécifiques ne sont pas dans le modèle Visite,
+      // elles sont calculées côté backend ou liées au produit.
+      // On envoie les catégories.
+      bg_sp: parseInt(bgSp, 10) || 0,
+      bg_bc: parseInt(bgBc, 10) || 0,
+      bg_elim: parseInt(bgElim, 10) || 0,
+      bg_gracedom: parseInt(bgGracedom, 10) || 0,
+      bg_ucb: parseInt(bgUcb, 10) || 0,
+      brasaf: parseInt(brasaf, 10) || 0,
+      autres_bg: parseInt(autresBg, 10) || 0,
+
+      ed_sp: parseInt(edSp, 10) || 0,
+      ed_bc: parseInt(edBc, 10) || 0,
+      ed_elim: parseInt(edElim, 10) || 0,
+      autres_ed: parseInt(autresEd, 10) || 0,
     };
 
     try {
@@ -139,12 +200,62 @@ export default function VisitFormScreen({ route, navigation }) {
         </View>
         
         <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Résumé</Text>
-            <View style={styles.staticSwitchContainer}><Text style={styles.label}>FIFO respecté</Text><Switch value={fifo} onValueChange={setFifo} /></View>
-            <View style={styles.staticSwitchContainer}><Text style={styles.label}>Planogramme respecté</Text><Switch value={planogramme} onValueChange={setPlanogramme} /></View>
+            <Text style={styles.sectionTitle}>Résumé de la Visite</Text>
+            <View style={styles.staticSwitchContainer}>
+                <Text style={styles.label}>FIFO respecté</Text>
+                <Switch value={fifo} onValueChange={setFifo} />
+            </View>
+            <View style={styles.staticSwitchContainer}>
+                <Text style={styles.label}>Planogramme respecté</Text>
+                <Switch value={planogramme} onValueChange={setPlanogramme} />
+            </View>
+            <TextInput
+                style={styles.input}
+                placeholder="Observations sur le planogramme"
+                value={obPlanogramme}
+                onChangeText={setObPlanogramme}
+            />
+        </View>
+
+        <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Détails du Support/PLV</Text>
+            <TextInput style={styles.input} placeholder="Type d'outil (ex: Frigo, Étagère...)" value={typeOutil} onChangeText={setTypeOutil} />
+            <TextInput style={styles.input} placeholder="Marque du support" value={marqueSupport} onChangeText={setMarqueSupport} />
+            <TextInput style={styles.input} placeholder="État du support (ex: Bon, Défaillant...)" value={etatSupport} onChangeText={setEtatSupport} />
         </View>
 
         <DynamicSection title="Relevé de Stock & Ruptures" items={stocks} setItems={setStocks} listForPicker={produitsForPicker} pickerPlaceholder="Sélectionner produit..." fields={[{ name: 'quantite', placeholder: 'Qté en Stock', type: 'numeric' }]} extraFields={[{ name: 'en_rupture', label: 'En Rupture' }]} />
+
+        <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Relevé par Catégorie</Text>
+            <View style={styles.grid}>
+                <TextInput style={styles.gridInput} placeholder="SP" value={sp} onChangeText={setSp} keyboardType="numeric" />
+                <TextInput style={styles.gridInput} placeholder="OP" value={op} onChangeText={setOp} keyboardType="numeric" />
+                <TextInput style={styles.gridInput} placeholder="Autres" value={autres} onChangeText={setAutres} keyboardType="numeric" />
+
+                <TextInput style={styles.gridInput} placeholder="VITAL" value={vital} onChangeText={setVital} keyboardType="numeric" />
+                <TextInput style={styles.gridInput} placeholder="TANGUI" value={tangui} onChangeText={setTangui} keyboardType="numeric" />
+                <TextInput style={styles.gridInput} placeholder="MADIBA" value={madiba} onChangeText={setMadiba} keyboardType="numeric" />
+                <TextInput style={styles.gridInput} placeholder="CEILO" value={ceilo} onChangeText={setCeilo} keyboardType="numeric" />
+                <TextInput style={styles.gridInput} placeholder="SANO" value={sano} onChangeText={setSano} keyboardType="numeric" />
+                <TextInput style={styles.gridInput} placeholder="AQUABELLE" value={aquabelle} onChangeText={setAquabelle} keyboardType="numeric" />
+                <TextInput style={styles.gridInput} placeholder="ULTIME LIGHT" value={ultimeLight} onChangeText={setUltimeLight} keyboardType="numeric" />
+                <TextInput style={styles.gridInput} placeholder="VALCLAIR" value={valclair} onChangeText={setValclair} keyboardType="numeric" />
+
+                <TextInput style={styles.gridInput} placeholder="BG SP" value={bgSp} onChangeText={setBgSp} keyboardType="numeric" />
+                <TextInput style={styles.gridInput} placeholder="BG BC" value={bgBc} onChangeText={setBgBc} keyboardType="numeric" />
+                <TextInput style={styles.gridInput} placeholder="BG ELIM" value={bgElim} onChangeText={setBgElim} keyboardType="numeric" />
+                <TextInput style={styles.gridInput} placeholder="BG GRACEDOM" value={bgGracedom} onChangeText={setBgGracedom} keyboardType="numeric" />
+                <TextInput style={styles.gridInput} placeholder="BG UCB" value={bgUcb} onChangeText={setBgUcb} keyboardType="numeric" />
+                <TextInput style={styles.gridInput} placeholder="BRASAF" value={brasaf} onChangeText={setBrasaf} keyboardType="numeric" />
+                <TextInput style={styles.gridInput} placeholder="Autres BG" value={autresBg} onChangeText={setAutresBg} keyboardType="numeric" />
+
+                <TextInput style={styles.gridInput} placeholder="ED SP" value={edSp} onChangeText={setEdSp} keyboardType="numeric" />
+                <TextInput style={styles.gridInput} placeholder="ED BC" value={edBc} onChangeText={setEdBc} keyboardType="numeric" />
+                <TextInput style={styles.gridInput} placeholder="ED ELIM" value={edElim} onChangeText={setEdElim} keyboardType="numeric" />
+                <TextInput style={styles.gridInput} placeholder="Autres ED" value={autresEd} onChangeText={setAutresEd} keyboardType="numeric" />
+            </View>
+        </View>
         <DynamicSection title="Incidents" items={incidents} setItems={setIncidents} listForPicker={produitsForPicker} pickerPlaceholder="Sélectionner produit..." fields={[{ name: 'quantite', placeholder: 'Qté', type: 'numeric' }, { name: 'observation', placeholder: 'Observation (ex: abîmé)', type: 'text' }]} />
         <DynamicSection title="Prise de Commande" items={commandes} setItems={setCommandes} listForPicker={produitsForPicker} pickerPlaceholder="Sélectionner produit..." fields={[{ name: 'quantite', placeholder: 'Qté Commandée', type: 'numeric' }, { name: 'observation', placeholder: 'Observation', type: 'text' }]} />
         <DynamicSection title="Veille Concurrentielle" items={veilles} setItems={setVeilles} listForPicker={concurrentsForPicker} pickerPlaceholder="Sélectionner un concurrent..." fields={[{ name: 'packs', placeholder: 'Nombre de packs', type: 'numeric' }, { name: 'activite', placeholder: 'Activité observée', type: 'text' }, { name: 'mecanisme', placeholder: 'Mécanisme', type: 'text' }]} />
@@ -181,6 +292,9 @@ const styles = StyleSheet.create({
     switchContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 15 },
     label: { fontSize: 16, color: '#444' },
     textArea: { height: 100, textAlignVertical: 'top', borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 10, margin: 15, fontSize: 16 },
+    input: { height: 45, borderWidth: 1, borderColor: '#ccc', borderRadius: 8, paddingHorizontal: 10, marginHorizontal: 15, marginTop: 10, fontSize: 16 },
+    grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', paddingHorizontal: 15 },
+    gridInput: { width: '48%', height: 45, borderWidth: 1, borderColor: '#ccc', borderRadius: 8, paddingHorizontal: 10, marginTop: 10, fontSize: 16 },
 });
 
 const pickerSelectStyles = StyleSheet.create({
