@@ -197,4 +197,23 @@ def log_activity(db: Session, user_id: int, action: str):
     """Enregistre une nouvelle activité dans le journal."""
     db_log = models.ActiviteLog(user_id=user_id, action=action)
     db.add(db_log)
-    
+
+
+def get_all_visites_for_export(db: Session):
+    return (
+        db.query(models.Visite)
+        .options(
+            joinedload(models.Visite.merchandiser).joinedload(models.Merchandiser.user),
+            joinedload(models.Visite.client),
+            joinedload(models.Visite.releves_stock).joinedload(
+                models.ReleveStock.produit
+            ),
+            joinedload(models.Visite.details_produits).joinedload(
+                models.DetailVisiteProduit.produit
+            ),
+            joinedload(models.Visite.veilles_concurrentielles).joinedload(
+                models.VeilleConcurrentielle.concurrent
+            ),
+        )
+        .all()
+    )

@@ -10,7 +10,8 @@ import datetime
 import io
 import csv
 from fastapi.responses import StreamingResponse
-
+from openpyxl import Workbook
+from openpyxl.styles import Font, Alignment
 from . import models, schemas, crud, security, database
 
 models.Base.metadata.create_all(bind=database.engine)
@@ -560,3 +561,134 @@ def read_categories_produit(
     current_user: models.User = Depends(get_current_user)
 ):
     return crud.get_categories_produit(db)
+
+
+@app.get(
+    "/admin/export/full-report",
+    tags=["Admin - Rapports"],
+    summary="Exporte un rapport complet de toutes les visites en format Excel",
+)
+def export_full_report(
+    db: Session = Depends(get_db),
+    admin_user: models.User = Depends(get_current_admin_user),
+):
+    """
+    Génère et télécharge un fichier Excel contenant un rapport détaillé de toutes les visites.
+    Chaque ligne du fichier Excel représente un détail spécifique (un relevé de stock, une commande, un incident, ou une veille concurrentielle),
+    avec les informations générales de la visite répétées sur chaque ligne.
+    """
+    visites = crud.get_all_visites_for_export(db)
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Rapport Complet des Visites"
+
+    # --- En-têtes ---
+    headers = [
+        # Infos Générales Visite
+        "ID Visite",
+        "Date Visite",
+        "Merchandiser",
+        "Client",
+        "Typologie Client",
+        "Localisation Client",
+        "FIFO Respecté",
+        "Planogramme Respecté",
+        "Observations Générales",
+        "Statut Validation",
+        # Type de Ligne
+        "Type de Donnée",
+        # Détails par type
+        "Produit (Stock/Commande/Incident)",
+        "Quantité en Stock",
+        "Est en Rupture",
+        "Type de Rupture",
+        "Type de Détail (Cmd/Inc)",
+        "Quantité (Cmd/Inc)",
+        "Observation (Cmd/Inc)",
+        "Concurrent (Veille)",
+        "Marque (Veille)",
+        "Nombre de Packs (Veille)",
+        "Activité Observée (Veille)",
+        "Mécanisme (Veille)",
+    ]
+    ws.append(headers)
+
+    # Appliquer un style aux en-têtes
+    for cell in ws[1]:
+        cell.font = Font(bold=True)
+        cell.alignment = Alignment(horizontal="center")
+
+    # --- Remplissage des données ---
+    for visite in visites:
+        base_row = [
+            visite.id,
+            visite.date_visite,
+            visite.merchandiser.user.nom if visite.merchandiser and visite.merchandiser.user else "N/A",
+            visite.client.nom_client if visite.client else "N/A",
+            visite.client.typologie if visite.client else "N/A",
+            visite.client.localisation if visite.client else "N/A",
+            "Oui" if visite.fifo_respecte else "Non",
+            "Oui" if visite.planogramme_respecte else "Non",
+            visite.observations_generales,
+            visite.statut_validation,
+        ]
+
+        # Ligne pour les relevés de stock
+        if not visite.releves_stock:
+            # S'il n'y a aucun détail, on met une ligne pour la visite elle-même
+            ws.append(base_row + ["Visite simple", "", "", "", "", "", "", "", "", "", "", "", ""])
+        else:
+            for releve in visite.releves_stock:
+                row = base_row + [
+                    "Relevé Stock",
+                    releve.produit.nom_produit if releve.produit else "N/A",
+                    releve.quantite_en_stock,
+                    "Oui" if releve.est_en_rupture else "Non",
+                    releve.type_rupture,
+                    # Colonnes vides pour les autres types
+                    "", "", "", "", "", "", "", ""
+                ]
+                ws.append(row)
+
+        # Lignes pour les détails de visite (Commandes/Incidents)
+        for detail in visite.details_produits:
+            row = base_row + [
+                "Détail Produit",
+                detail.produit.nom_produit if detail.produit else "N/A",
+                # Colonnes vides pour les autres types
+                "", "", "",
+                detail.type_detail,
+                detail.quantite,
+                detail.observation,
+                 # Colonnes vides pour les autres types
+                "", "", "", "", ""
+            ]
+            ws.append(row)
+
+        # Lignes pour la veille concurrentielle
+        for veille in visite.veilles_concurrentielles:
+            row = base_row + [
+                "Veille Concurrentielle",
+                # Colonnes vides pour les autres types
+                "", "", "", "", "", "", "",
+                veille.concurrent.nom if veille.concurrent else "N/A",
+                veille.marque,
+                veille.nombre_packs,
+                veille.activite_observee,
+                veille.mecanisme,
+            ]
+            ws.append(row)
+
+    # --- Sauvegarde en mémoire ---
+    virtual_workbook = io.BytesIO()
+    wb.save(virtual_workbook)
+    virtual_workbook.seek(0)
+
+    return StreamingResponse(
+        virtual_workbook,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": f"attachment; filename=rapport_complet_visites_{datetime.date.today()}.xlsx"
+        },
+    )
