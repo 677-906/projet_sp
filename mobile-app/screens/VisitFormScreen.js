@@ -115,8 +115,11 @@ export default function VisitFormScreen({ route, navigation }) {
   const [concurrentsForPicker, setConcurrentsForPicker] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [heureDebut, setHeureDebut] = useState(null);
 
   useEffect(() => {
+    setHeureDebut(new Date()); // On enregistre l'heure de début dès l'ouverture
+
     const fetchData = async () => {
       try {
         const [produitsRes, concurrentsRes] = await Promise.all([
@@ -147,6 +150,10 @@ export default function VisitFormScreen({ route, navigation }) {
       releves_stock: releves_stock_list,
       details_produits: [...incidents_list, ...commandes_list],
       veilles_concurrentielles: veilles_list,
+
+      // --- Ajout des heures de début et de fin ---
+      heure_debut: heureDebut ? heureDebut.toISOString() : null,
+      heure_fin: new Date().toISOString(),
 
       // --- Ajout des nouveaux champs ---
       type_outil: typeOutil,

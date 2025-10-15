@@ -25,12 +25,23 @@ function VisitDetailPage() {
   }, [visiteId]);
 
   const handleAction = async (action) => {
+    let payload = {};
+    if (action === 'rejeter') {
+      const reason = prompt("Veuillez entrer la raison du rejet :");
+      if (reason === null || reason.trim() === '') {
+        alert("Le rejet a été annulé. Une raison est requise.");
+        return;
+      }
+      payload = { reason };
+    }
+
     const endpoint = action === 'valider' ? `/visites/${visiteId}/valider` : `/visites/${visiteId}/rejeter`;
     try {
-      await axiosInstance.put(endpoint);
+      await axiosInstance.put(endpoint, payload);
       alert(`Rapport ${action === 'valider' ? 'validé' : 'rejeté'} avec succès !`);
       navigate('/dashboard');
     } catch (error) {
+      console.error("Erreur lors de l'action :", error.response?.data || error);
       alert(`Erreur lors de l'action : ${action}`);
     }
   };

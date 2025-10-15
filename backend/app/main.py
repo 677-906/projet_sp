@@ -452,24 +452,22 @@ def valider_visite(
 
 @app.put("/visites/{visite_id}/rejeter", response_model=schemas.Visite, tags=["Superviseur - Validation"])
 def rejeter_visite(
-    visite_id: int, 
-    db: Session = Depends(get_db), 
+    visite_id: int,
+    rejection_data: schemas.RejectionData,
+    db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
-    """Change le statut d'une visite à 'rejete'."""
-    # On vérifie que l'utilisateur est bien un superviseur
+    """Change le statut d'une visite à 'rejete' et enregistre la raison."""
     if not current_user.superviseur_profile:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Accès réservé aux superviseurs")
 
-    # 1. On récupère la visite depuis la base de données
     db_visite = db.query(models.Visite).filter(models.Visite.id == visite_id).first()
-    
-    # 2. On vérifie si la visite existe
     if not db_visite:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Visite non trouvée")
 
     db_visite.statut_validation = 'rejete'
     db_visite.validateur_id = current_user.superviseur_profile.id
+    db_visite.rejection_reason = rejection_data.reason
     
     db.commit()
     db.refresh(db_visite)

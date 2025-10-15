@@ -140,6 +140,7 @@ class Visite(Base):
     ed_bc = Column(Integer, nullable=True)
     ed_elim = Column(Integer, nullable=True)
     autres_ed = Column(Integer, nullable=True)
+    rejection_reason = Column(Text, nullable=True)
 
 
     merchandiser = relationship("Merchandiser", back_populates="visites")

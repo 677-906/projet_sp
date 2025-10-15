@@ -248,6 +248,8 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     email: Optional[str] = None
 
+class RejectionData(BaseModel):
+    reason: str
 
 class ActiviteLog(BaseModel):
      id: int
