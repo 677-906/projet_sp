@@ -3,12 +3,13 @@
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 from typing import List
 import datetime
 import io
 import csv
+import json
 from fastapi.responses import StreamingResponse
 
 from . import models, schemas, crud, security, database
@@ -366,12 +367,13 @@ def export_visites_validees(
     current_user: models.User = Depends(get_current_user)
 ):
     """
-    Exporte tous les rapports validés de l'équipe du superviseur au format CSV.
+    Exporte tous les rapports validés de l'équipe du superviseur au format CSV,
+    avec tous les détails de la visite.
     """
     if not current_user.superviseur_profile:
         raise HTTPException(status_code=403, detail="Accès réservé aux superviseurs")
-    
-    # 1. On récupère les données à exporter
+
+    # 1. Récupérer les données avec eager loading pour les relations
     visites_validees = (
         db.query(models.Visite)
         .join(models.Merchandiser)
@@ -379,36 +381,93 @@ def export_visites_validees(
             models.Visite.statut_validation == 'valide',
             models.Merchandiser.manager_id == current_user.superviseur_profile.id
         )
+        .options(
+            joinedload(models.Visite.client),
+            joinedload(models.Visite.merchandiser).joinedload(models.Merchandiser.user),
+            joinedload(models.Visite.releves_stock).joinedload(models.ReleveStock.produit),
+            joinedload(models.Visite.details_produits).joinedload(models.DetailVisiteProduit.produit),
+            joinedload(models.Visite.veilles_concurrentielles).joinedload(models.VeilleConcurrentielle.concurrent)
+        )
         .all()
     )
 
-    # 2. On prépare le fichier CSV en mémoire
     output = io.StringIO()
     writer = csv.writer(output)
 
-    # 3. On écrit la ligne d'en-tête
-    header = ['ID Visite', 'Date', 'Nom Merchandiser', 'Nom Client', 'Statut', 'Validé par ID']
+    # 2. Définir un en-tête de CSV complet
+    header = [
+        'ID Visite', 'Date Visite', 'Statut Validation', 'Validateur ID',
+        'Observations Générales', 'FIFO Respecté', 'Planogramme Respecté',
+        'ID Client', 'Nom Client', 'Contact Client', 'Typologie Client', 'Localisation Client',
+        'ID Merchandiser', 'Nom Merchandiser', 'Email Merchandiser',
+        'Relevés de Stock (JSON)', 'Détails Produits (JSON)', 'Veilles Concurrentielles (JSON)'
+    ]
     writer.writerow(header)
 
-    # 4. On écrit une ligne pour chaque visite
+    # 3. Fonction pour convertir un objet SQLAlchemy en dictionnaire
+    def to_dict(obj, fields):
+        return {field: getattr(obj, field, None) for field in fields}
+
+    # 4. Itérer sur les visites et construire les lignes du CSV
     for visite in visites_validees:
+        # Sérialiser les listes d'objets en JSON
+        releves_stock_json = json.dumps([
+            {
+                "produit": rs.produit.nom_produit,
+                "quantite_en_stock": rs.quantite_en_stock,
+                "est_en_rupture": rs.est_en_rupture,
+                "type_rupture": rs.type_rupture
+            } for rs in visite.releves_stock
+        ], ensure_ascii=False)
+
+        details_produits_json = json.dumps([
+            {
+                "produit": dp.produit.nom_produit,
+                "type_detail": dp.type_detail,
+                "quantite": dp.quantite,
+                "observation": dp.observation
+            } for dp in visite.details_produits
+        ], ensure_ascii=False)
+
+        veilles_concurrentielles_json = json.dumps([
+            {
+                "concurrent": vc.concurrent.nom,
+                "marque": vc.marque,
+                "nombre_packs": vc.nombre_packs,
+                "activite_observee": vc.activite_observee,
+                "mecanisme": vc.mecanisme
+            } for vc in visite.veilles_concurrentielles
+        ], ensure_ascii=False)
+
+        # Construire la ligne
         row = [
             visite.id,
-            visite.date_visite,
-            visite.merchandiser.user.nom,
-            visite.client.nom_client,
+            visite.date_visite.isoformat() if visite.date_visite else None,
             visite.statut_validation,
-            visite.validateur_id
+            visite.validateur_id,
+            visite.observations_generales,
+            visite.fifo_respecte,
+            visite.planogramme_respecte,
+            visite.client.id,
+            visite.client.nom_client,
+            visite.client.contact,
+            visite.client.typologie,
+            visite.client.localisation,
+            visite.merchandiser.id,
+            visite.merchandiser.user.nom,
+            visite.merchandiser.user.email,
+            releves_stock_json,
+            details_produits_json,
+            veilles_concurrentielles_json
         ]
         writer.writerow(row)
 
-    output.seek(0) # On remet le curseur au début du fichier en mémoire
+    output.seek(0)
 
-    # 5. On renvoie le fichier
     return StreamingResponse(
         output,
         media_type="text/csv",
-        headers={"Content-Disposition": f"attachment; filename=rapports_valides_{datetime.date.today()}.csv"}
+        headers={"Content-Disposition": f"attachment; filename=rapports_detailles_visites_{datetime.date.today()}.csv"}
     )
 
 
