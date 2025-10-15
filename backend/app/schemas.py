@@ -52,6 +52,14 @@ class ClientBase(BaseModel):
     contact: Optional[str] = None
     typologie: Optional[str] = None
     localisation: Optional[str] = None
+    base: Optional[str] = None
+    responsable: Optional[str] = None
+    commercial: Optional[str] = None
+    lieu_dit: Optional[str] = None
+    reseau_distribution: Optional[str] = None
+    type_client: Optional[str] = None
+    client_direct: Optional[bool] = None
+
 class ClientCreate(ClientBase):
     pass
 
@@ -106,6 +114,27 @@ class VisiteBase(BaseModel):
     observations_generales: str = ''
     fifo_respecte: bool = True
     planogramme_respecte: bool = True
+    heure_debut: Optional[datetime] = None
+    heure_fin: Optional[datetime] = None
+    type_outil: Optional[str] = None
+    marque_support: Optional[str] = None
+    etat_support: Optional[str] = None
+    ob_planogramme: Optional[str] = None
+    sp: Optional[int] = None
+    op: Optional[int] = None
+    autres: Optional[int] = None
+    bg_sp: Optional[int] = None
+    bg_bc: Optional[int] = None
+    bg_elim: Optional[int] = None
+    bg_gracedom: Optional[int] = None
+    bg_ucb: Optional[int] = None
+    brasaf: Optional[int] = None
+    autres_bg: Optional[int] = None
+    ed_sp: Optional[int] = None
+    ed_bc: Optional[int] = None
+    ed_elim: Optional[int] = None
+    autres_ed: Optional[int] = None
+
 class VisiteCreate(VisiteBase):
     releves_stock: List[ReleveStockBase] = []
     details_produits: List[DetailVisiteProduitBase] = []

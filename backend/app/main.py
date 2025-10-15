@@ -573,114 +573,104 @@ def export_full_report(
     admin_user: models.User = Depends(get_current_admin_user),
 ):
     """
-    Génère et télécharge un fichier Excel contenant un rapport détaillé de toutes les visites.
-    Chaque ligne du fichier Excel représente un détail spécifique (un relevé de stock, une commande, un incident, ou une veille concurrentielle),
-    avec les informations générales de la visite répétées sur chaque ligne.
+    Génère et télécharge un fichier Excel contenant un rapport détaillé de toutes les visites
+    conformément au format spécifié (51 colonnes).
+    Chaque ligne du fichier Excel représente une visite unique, avec les détails
+    (ruptures, incidents, veille) agrégés dans les colonnes correspondantes.
     """
     visites = crud.get_all_visites_for_export(db)
-
     wb = Workbook()
     ws = wb.active
-    ws.title = "Rapport Complet des Visites"
+    ws.title = "Rapport Marchandiseurs"
 
-    # --- En-têtes ---
     headers = [
-        # Infos Générales Visite
-        "ID Visite",
-        "Date Visite",
-        "Merchandiser",
-        "Client",
-        "Typologie Client",
-        "Localisation Client",
-        "FIFO Respecté",
-        "Planogramme Respecté",
-        "Observations Générales",
-        "Statut Validation",
-        # Type de Ligne
-        "Type de Donnée",
-        # Détails par type
-        "Produit (Stock/Commande/Incident)",
-        "Quantité en Stock",
-        "Est en Rupture",
-        "Type de Rupture",
-        "Type de Détail (Cmd/Inc)",
-        "Quantité (Cmd/Inc)",
-        "Observation (Cmd/Inc)",
-        "Concurrent (Veille)",
-        "Marque (Veille)",
-        "Nombre de Packs (Veille)",
-        "Activité Observée (Veille)",
-        "Mécanisme (Veille)",
+        "ZONE", "MARCHANDISEUR", "DATE", "BASE", "RESPONSABLE", "CHEF DE ZONE",
+        "HEURE AR", "HEURE DE", "COMMERCIAL", "CONTACT", "NOM CLIENT",
+        "TYPOLOGIE", "LOCALISATION", "LIEU DIT", "TYPE OUTIL", "MARQUE",
+        "ETATS", "FIFO", "RUPTURES", "TYPE INCIDENTS", "ARTICLE", "QUANTITE",
+        "OBSERVATION", "SP", "OP", "VITAL", "TANGUI", "MADIBA", "CEILO",
+        "SANO", "AQUABELLE", "ULTIME LIGHT", "VALCLAIR", "AUTRES", "BG SP",
+        "BG BC", "BG ELIM", "BG GRACEDOM", "BG UCB", "BRASAF", "AUTRES BG",
+        "ED SP", "ED BC", "ED ELIM", "AUTRES ED", "CONCURRENT", "ACTIVITE",
+        "MECANISME", "RESEAU DE DISTRIBUTION", "PLANOGRAMME", "OB PLANOGRAMME",
+        "TYPE CLIENT", "CLIENT DIRECT", "ID"
     ]
     ws.append(headers)
 
-    # Appliquer un style aux en-têtes
     for cell in ws[1]:
         cell.font = Font(bold=True)
         cell.alignment = Alignment(horizontal="center")
 
-    # --- Remplissage des données ---
     for visite in visites:
-        base_row = [
-            visite.id,
-            visite.date_visite,
-            visite.merchandiser.user.nom if visite.merchandiser and visite.merchandiser.user else "N/A",
-            visite.client.nom_client if visite.client else "N/A",
-            visite.client.typologie if visite.client else "N/A",
-            visite.client.localisation if visite.client else "N/A",
-            "Oui" if visite.fifo_respecte else "Non",
-            "Oui" if visite.planogramme_respecte else "Non",
-            visite.observations_generales,
-            visite.statut_validation,
+        ruptures_list = [
+            r.produit.nom_produit for r in visite.releves_stock if r.est_en_rupture and r.produit
         ]
+        incidents = [d for d in visite.details_produits if d.type_detail == 'incident']
+        veilles = visite.veilles_concurrentielles
 
-        # Ligne pour les relevés de stock
-        if not visite.releves_stock:
-            # S'il n'y a aucun détail, on met une ligne pour la visite elle-même
-            ws.append(base_row + ["Visite simple", "", "", "", "", "", "", "", "", "", "", "", ""])
-        else:
-            for releve in visite.releves_stock:
-                row = base_row + [
-                    "Relevé Stock",
-                    releve.produit.nom_produit if releve.produit else "N/A",
-                    releve.quantite_en_stock,
-                    "Oui" if releve.est_en_rupture else "Non",
-                    releve.type_rupture,
-                    # Colonnes vides pour les autres types
-                    "", "", "", "", "", "", "", ""
-                ]
-                ws.append(row)
+        client_data = visite.client
+        merchandiser_data = visite.merchandiser
 
-        # Lignes pour les détails de visite (Commandes/Incidents)
-        for detail in visite.details_produits:
-            row = base_row + [
-                "Détail Produit",
-                detail.produit.nom_produit if detail.produit else "N/A",
-                # Colonnes vides pour les autres types
-                "", "", "",
-                detail.type_detail,
-                detail.quantite,
-                detail.observation,
-                 # Colonnes vides pour les autres types
-                "", "", "", "", ""
-            ]
-            ws.append(row)
+        row_data = {
+            "ID": visite.id,
+            "DATE": visite.date_visite,
+            "MARCHANDISEUR": merchandiser_data.user.nom if merchandiser_data and merchandiser_data.user else "",
+            "ZONE": merchandiser_data.zone_geographique if merchandiser_data else "",
+            "CHEF DE ZONE": merchandiser_data.manager.user.nom if (merchandiser_data and merchandiser_data.manager and merchandiser_data.manager.user) else "",
 
-        # Lignes pour la veille concurrentielle
-        for veille in visite.veilles_concurrentielles:
-            row = base_row + [
-                "Veille Concurrentielle",
-                # Colonnes vides pour les autres types
-                "", "", "", "", "", "", "",
-                veille.concurrent.nom if veille.concurrent else "N/A",
-                veille.marque,
-                veille.nombre_packs,
-                veille.activite_observee,
-                veille.mecanisme,
-            ]
-            ws.append(row)
+            "NOM CLIENT": client_data.nom_client if client_data else "",
+            "TYPOLOGIE": client_data.typologie if client_data else "",
+            "LOCALISATION": client_data.localisation if client_data else "",
+            "CONTACT": client_data.contact if client_data else "",
+            "BASE": client_data.base if client_data else "",
+            "RESPONSABLE": client_data.responsable if client_data else "",
+            "COMMERCIAL": client_data.commercial if client_data else "",
+            "LIEU DIT": client_data.lieu_dit if client_data else "",
+            "RESEAU DE DISTRIBUTION": client_data.reseau_distribution if client_data else "",
+            "TYPE CLIENT": client_data.type_client if client_data else "",
+            "CLIENT DIRECT": "Oui" if client_data and client_data.client_direct else "Non",
 
-    # --- Sauvegarde en mémoire ---
+            "HEURE AR": visite.heure_debut.strftime("%H:%M:%S") if visite.heure_debut else "",
+            "HEURE DE": visite.heure_fin.strftime("%H:%M:%S") if visite.heure_fin else "",
+
+            "TYPE OUTIL": visite.type_outil,
+            "MARQUE": visite.marque_support,
+            "ETATS": visite.etat_support,
+            "OB PLANOGRAMME": visite.ob_planogramme,
+            "OBSERVATION": visite.observations_generales,
+
+            "FIFO": "Oui" if visite.fifo_respecte else "Non",
+            "PLANOGRAMME": "Oui" if visite.planogramme_respecte else "Non",
+
+            "RUPTURES": "; ".join(ruptures_list),
+            "TYPE INCIDENTS": "; ".join([i.observation for i in incidents if i.observation]),
+            "ARTICLE": "; ".join([i.produit.nom_produit for i in incidents if i.produit]),
+            "QUANTITE": "; ".join([str(i.quantite) for i in incidents]),
+
+            "CONCURRENT": "; ".join([v.concurrent.nom for v in veilles if v.concurrent]),
+            "ACTIVITE": "; ".join([v.activite_observee for v in veilles if v.activite_observee]),
+            "MECANISME": "; ".join([v.mecanisme for v in veilles if v.mecanisme]),
+
+            "SP": visite.sp, "OP": visite.op, "AUTRES": visite.autres,
+            "BG SP": visite.bg_sp, "BG BC": visite.bg_bc, "BG ELIM": visite.bg_elim,
+            "BG GRACEDOM": visite.bg_gracedom, "BG UCB": visite.bg_ucb, "BRASAF": visite.brasaf,
+            "AUTRES BG": visite.autres_bg, "ED SP": visite.ed_sp, "ED BC": visite.ed_bc,
+            "ED ELIM": visite.ed_elim, "AUTRES ED": visite.autres_ed,
+
+            # --- Mappage des marques spécifiques (VITAL, TANGUI, etc.) ---
+            "VITAL": next((r.quantite_en_stock for r in visite.releves_stock if r.produit and "VITAL" in r.produit.marque.upper()), ""),
+            "TANGUI": next((r.quantite_en_stock for r in visite.releves_stock if r.produit and "TANGUI" in r.produit.marque.upper()), ""),
+            "MADIBA": next((r.quantite_en_stock for r in visite.releves_stock if r.produit and "MADIBA" in r.produit.marque.upper()), ""),
+            "CEILO": next((r.quantite_en_stock for r in visite.releves_stock if r.produit and "CEILO" in r.produit.marque.upper()), ""),
+            "SANO": next((r.quantite_en_stock for r in visite.releves_stock if r.produit and "SANO" in r.produit.marque.upper()), ""),
+            "AQUABELLE": next((r.quantite_en_stock for r in visite.releves_stock if r.produit and "AQUABELLE" in r.produit.marque.upper()), ""),
+            "ULTIME LIGHT": next((r.quantite_en_stock for r in visite.releves_stock if r.produit and "ULTIME LIGHT" in r.produit.marque.upper()), ""),
+            "VALCLAIR": next((r.quantite_en_stock for r in visite.releves_stock if r.produit and "VALCLAIR" in r.produit.marque.upper()), ""),
+        }
+
+        final_row = [row_data.get(h, "") for h in headers]
+        ws.append(final_row)
+
     virtual_workbook = io.BytesIO()
     wb.save(virtual_workbook)
     virtual_workbook.seek(0)
@@ -689,6 +679,6 @@ def export_full_report(
         virtual_workbook,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={
-            "Content-Disposition": f"attachment; filename=rapport_complet_visites_{datetime.date.today()}.xlsx"
+            "Content-Disposition": f"attachment; filename=Rapport_Marchandiseurs_{datetime.date.today()}.xlsx"
         },
     )

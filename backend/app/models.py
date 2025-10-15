@@ -65,8 +65,17 @@ class Client(Base):
     typologie = Column(String(100), nullable=True)
     localisation = Column(String(255), nullable=True)
     createur_id = Column(Integer, ForeignKey('users.id'), nullable=True)
-    createur = relationship("User", back_populates="clients_crees")   
 
+    # --- Champs étendus ---
+    base = Column(String(100), nullable=True)
+    responsable = Column(String(100), nullable=True)
+    commercial = Column(String(100), nullable=True)
+    lieu_dit = Column(String(255), nullable=True)
+    reseau_distribution = Column(String(100), nullable=True)
+    type_client = Column(String(100), nullable=True)
+    client_direct = Column(Boolean, default=False)
+
+    createur = relationship("User", back_populates="clients_crees")
     visites = relationship("Visite", back_populates="client")
 
 class Produit(Base):
@@ -108,7 +117,31 @@ class Visite(Base):
     validateur_id = Column(Integer, ForeignKey('superviseurs.id'), nullable=True)
     date_validation = Column(Date, nullable=True)
     heure_debut = Column(Time, nullable=True)
-    
+    heure_fin = Column(Time, nullable=True)
+
+    # --- Champs étendus pour le rapport ---
+    type_outil = Column(String(100), nullable=True)
+    marque_support = Column(String(100), nullable=True)
+    etat_support = Column(String(100), nullable=True)
+    ob_planogramme = Column(Text, nullable=True)
+
+    # --- Champs pour les catégories de produits ---
+    sp = Column(Integer, nullable=True)
+    op = Column(Integer, nullable=True)
+    autres = Column(Integer, nullable=True)
+    bg_sp = Column(Integer, nullable=True)
+    bg_bc = Column(Integer, nullable=True)
+    bg_elim = Column(Integer, nullable=True)
+    bg_gracedom = Column(Integer, nullable=True)
+    bg_ucb = Column(Integer, nullable=True)
+    brasaf = Column(Integer, nullable=True)
+    autres_bg = Column(Integer, nullable=True)
+    ed_sp = Column(Integer, nullable=True)
+    ed_bc = Column(Integer, nullable=True)
+    ed_elim = Column(Integer, nullable=True)
+    autres_ed = Column(Integer, nullable=True)
+
+
     merchandiser = relationship("Merchandiser", back_populates="visites")
     validateur = relationship("Superviseur")
     client = relationship("Client", back_populates="visites")

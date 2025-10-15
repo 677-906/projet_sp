@@ -177,8 +177,37 @@ def create_concurrent(db: Session, concurrent: schemas.ConcurrentCreate):
 
 # --- Visites ---
 def create_visite(db: Session, visite: schemas.VisiteCreate, merchandiser_id: int):
-    db_visite = models.Visite(client_id=visite.client_id, merchandiser_id=merchandiser_id, observations_generales=visite.observations_generales, fifo_respecte=visite.fifo_respecte, planogramme_respecte=visite.planogramme_respecte)
+    # On extrait les champs étendus du schéma et on les passe au modèle
+    db_visite = models.Visite(
+        client_id=visite.client_id,
+        merchandiser_id=merchandiser_id,
+        observations_generales=visite.observations_generales,
+        fifo_respecte=visite.fifo_respecte,
+        planogramme_respecte=visite.planogramme_respecte,
+        heure_debut=visite.heure_debut,
+        heure_fin=visite.heure_fin,
+        type_outil=visite.type_outil,
+        marque_support=visite.marque_support,
+        etat_support=visite.etat_support,
+        ob_planogramme=visite.ob_planogramme,
+        sp=visite.sp,
+        op=visite.op,
+        autres=visite.autres,
+        bg_sp=visite.bg_sp,
+        bg_bc=visite.bg_bc,
+        bg_elim=visite.bg_elim,
+        bg_gracedom=visite.bg_gracedom,
+        bg_ucb=visite.bg_ucb,
+        brasaf=visite.brasaf,
+        autres_bg=visite.autres_bg,
+        ed_sp=visite.ed_sp,
+        ed_bc=visite.ed_bc,
+        ed_elim=visite.ed_elim,
+        autres_ed=visite.autres_ed
+    )
     db.add(db_visite)
+
+    # Le reste de la logique pour les listes reste inchangé
     for stock_item in visite.releves_stock:
         db_stock = models.ReleveStock(**stock_item.dict(), visite=db_visite)
         db.add(db_stock)
@@ -188,6 +217,7 @@ def create_visite(db: Session, visite: schemas.VisiteCreate, merchandiser_id: in
     for veille_item in visite.veilles_concurrentielles:
         db_veille = models.VeilleConcurrentielle(**veille_item.dict(), visite=db_visite)
         db.add(db_veille)
+
     db.commit()
     db.refresh(db_visite)
     return db_visite
