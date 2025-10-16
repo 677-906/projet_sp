@@ -1,6 +1,7 @@
 # Fichier: app/crud.py - VERSION FINALE COMPLÈTE ET INTÉGRALE
 
 from sqlalchemy.orm import Session, joinedload, selectinload
+from typing import Optional
 from . import models, schemas, security
 
 # --- Utilisateurs et Profils ---
