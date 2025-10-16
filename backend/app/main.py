@@ -592,7 +592,7 @@ def export_full_report(
         "BG BC", "BG ELIM", "BG GRACEDOM", "BG UCB", "BRASAF", "AUTRES BG",
         "ED SP", "ED BC", "ED ELIM", "AUTRES ED", "CONCURRENT", "ACTIVITE",
         "MECANISME", "RESEAU DE DISTRIBUTION", "PLANOGRAMME", "OB PLANOGRAMME",
-        "TYPE CLIENT", "CLIENT DIRECT", "ID"
+        "TYPE CLIENT", "CLIENT DIRECT", "ID", "REJECTION REASON", "DATE VALIDATION"
     ]
     ws.append(headers)
 
@@ -628,6 +628,8 @@ def export_full_report(
             "RESEAU DE DISTRIBUTION": client_data.reseau_distribution if client_data else "",
             "TYPE CLIENT": client_data.type_client if client_data else "",
             "CLIENT DIRECT": "Oui" if client_data and client_data.client_direct else "Non",
+            "REJECTION REASON": visite.rejection_reason,
+            "DATE VALIDATION": visite.date_validation,
 
             "HEURE AR": visite.heure_debut.strftime("%H:%M:%S") if visite.heure_debut else "",
             "HEURE DE": visite.heure_fin.strftime("%H:%M:%S") if visite.heure_fin else "",
