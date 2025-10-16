@@ -555,6 +555,25 @@ def get_merchandiser_dashboard_stats(
 @app.get("/clients/", response_model=List[schemas.Client], tags=["Données de Référence"])
 def read_clients(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     return crud.get_clients(db)
+
+@app.get("/clients/{client_id}", response_model=schemas.Client, tags=["Données de Référence"])
+def read_client(client_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    db_client = crud.get_client(db, client_id=client_id)
+    if db_client is None:
+        raise HTTPException(status_code=404, detail="Client non trouvé")
+    return db_client
+
+@app.put("/clients/{client_id}", response_model=schemas.Client, tags=["Données de Référence"])
+def update_client_by_user(
+    client_id: int,
+    client_update: schemas.ClientUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    updated_client = crud.update_client(db, client_id=client_id, client_update=client_update)
+    if not updated_client:
+        raise HTTPException(status_code=404, detail="Client non trouvé")
+    return updated_client
 @app.get("/produits/", response_model=List[schemas.Produit], tags=["Données de Référence"])
 def read_produits(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     return crud.get_produits(db)

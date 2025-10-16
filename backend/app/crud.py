@@ -71,6 +71,9 @@ def delete_user(db: Session, user_id: int):
     return None
 
 # --- Données de Référence ---
+def get_client(db: Session, client_id: int):
+    return db.query(models.Client).filter(models.Client.id == client_id).first()
+
 def get_clients(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.Client).offset(skip).limit(limit).all()
 def create_client(db: Session, client: schemas.ClientCreate):
