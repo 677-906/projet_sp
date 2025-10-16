@@ -14,22 +14,16 @@ def create_user(db: Session, user: schemas.UserCreate):
     db.commit()
     db.refresh(db_user)
     return db_user
-# Dans app/crud.py
 
-# ... (vos fonctions get_user_by_email, create_user, etc.)
-
-# --- LA FONCTION MANQUANTE EST ICI ---
 def update_user(db: Session, user_id: int, user_update: schemas.UserUpdate):
     """Met à jour un utilisateur dans la base de données."""
     db_user = db.query(models.User).filter(models.User.id == user_id).first()
     if not db_user:
         return None
     
-    # On récupère les données envoyées SANS les valeurs non définies
     update_data = user_update.dict(exclude_unset=True)
     
     for key, value in update_data.items():
-        # Utilise setattr pour mettre à jour les champs dynamiquement
         setattr(db_user, key, value)
             
     db.add(db_user)
@@ -51,7 +45,6 @@ def create_merchandiser_profile(db: Session, user_id: int, manager_id: int):
     return db_profile
 def create_full_user(db: Session, user_data: schemas.FullUserCreate):
     if user_data.role_nom.lower() == 'administrateur':
-        # On lève une erreur explicite qui sera renvoyée à l'utilisateur
         raise ValueError("La création d'un administrateur n'est pas autorisée.")
     role = db.query(models.Role).filter(models.Role.nom.ilike(user_data.role_nom)).first()
     if not role:
@@ -67,8 +60,6 @@ def create_full_user(db: Session, user_data: schemas.FullUserCreate):
         create_merchandiser_profile(db, user_id=db_user.id, manager_id=user_data.manager_id)
     db.refresh(db_user)
     return db_user
-
-
 
 def delete_user(db: Session, user_id: int):
     db_user = db.query(models.User).filter(models.User.id == user_id).first()
@@ -88,14 +79,10 @@ def create_client(db: Session, client: schemas.ClientCreate):
     db.refresh(db_client)
     return db_client
 
-
 def delete_client(db: Session, client_id: int):
     """Supprime un client de la base de données."""
     db_client = db.query(models.Client).filter(models.Client.id == client_id).first()
     if db_client:
-        # Attention: si des visites sont liées à ce client, cela peut causer une erreur
-        # d'intégrité référentielle. Une vraie application gérerait ce cas
-        # (ex: suppression en cascade ou anonymisation).
         db.delete(db_client)
         db.commit()
         return db_client
@@ -135,7 +122,6 @@ def delete_produit(db: Session, produit_id: int):
         return db_produit
     return None
 
-# Dans app/crud.py
 def update_produit(db: Session, produit_id: int, produit_update: schemas.ProduitUpdate):
     db_produit = db.query(models.Produit).filter(models.Produit.id == produit_id).first()
     if not db_produit:
