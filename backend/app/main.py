@@ -3,15 +3,14 @@
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.orm import Session, joinedload, selectinload
+from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import List
 import datetime
 import io
 import csv
 from fastapi.responses import StreamingResponse
-from openpyxl import Workbook
-from openpyxl.styles import Font, Alignment
+
 from . import models, schemas, crud, security, database
 
 models.Base.metadata.create_all(bind=database.engine)
@@ -326,15 +325,49 @@ def read_all_visites_en_attente_pour_admin(
     """Récupère TOUS les rapports en attente de TOUTES les équipes."""
     return db.query(models.Visite).filter(models.Visite.statut_validation == 'soumis').all()
 
-@app.get("/superviseurs/", response_model=List[schemas.Superviseur], tags=["Admin - Gestion Utilisateurs"])
+@app.get("/superviseurs/", response_model=List[schemas.Superviseur], tags=["Données de Référence"])
 def read_all_superviseurs(
     db: Session = Depends(get_db),
-    # On protège la route pour que seuls les admins puissent voir la liste
-    admin_user: models.User = Depends(get_current_admin_user)
+    current_user: models.User = Depends(get_current_user)
 ):
     """Récupère la liste de tous les profils de superviseurs."""
     superviseurs = db.query(models.Superviseur).all()
     return superviseurs
+
+@app.get("/superviseur/{superviseur_id}/commerciaux", response_model=List[str], tags=["Données de Référence"])
+def read_commerciaux_by_superviseur(
+    superviseur_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """
+    Récupère la liste des noms de commerciaux uniques basés sur la zone d'un superviseur.
+    """
+    superviseur = db.query(models.Superviseur).filter(models.Superviseur.id == superviseur_id).first()
+    if not superviseur or not superviseur.zone:
+        raise HTTPException(status_code=404, detail="Superviseur non trouvé ou sans zone assignée")
+
+    # On récupère les noms uniques des commerciaux pour les clients dans la même zone
+    commerciaux = (
+        db.query(models.Client.commercial_nom)
+        .filter(models.Client.zone == superviseur.zone, models.Client.commercial_nom.isnot(None))
+        .distinct()
+        .all()
+    )
+    return [c[0] for c in commerciaux]
+
+
+@app.get("/commercial/{commercial_nom}/clients", response_model=List[schemas.Client], tags=["Données de Référence"])
+def read_clients_by_commercial(
+    commercial_nom: str,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Récupère la liste des clients pour un nom de commercial donné."""
+    clients = db.query(models.Client).filter(models.Client.commercial_nom == commercial_nom).all()
+    if not clients:
+        raise HTTPException(status_code=404, detail=f"Aucun client trouvé pour le commercial '{commercial_nom}'")
+    return clients
 
 @app.get("/superviseur/visites/historique", response_model=List[schemas.VisiteInfo], tags=["Superviseur - Rapports"])
 def read_historique_visites_equipe(
@@ -367,128 +400,49 @@ def export_visites_validees(
     current_user: models.User = Depends(get_current_user)
 ):
     """
-    Exporte tous les rapports validés de l'équipe du superviseur au format Excel.
+    Exporte tous les rapports validés de l'équipe du superviseur au format CSV.
     """
     if not current_user.superviseur_profile:
         raise HTTPException(status_code=403, detail="Accès réservé aux superviseurs")
     
-    # 1. On récupère les données à exporter, mais uniquement pour l'équipe du superviseur
-    visites = (
+    # 1. On récupère les données à exporter
+    visites_validees = (
         db.query(models.Visite)
         .join(models.Merchandiser)
-        .filter(models.Merchandiser.manager_id == current_user.superviseur_profile.id)
-        .options(
-            joinedload(models.Visite.merchandiser).joinedload(models.Merchandiser.user),
-            joinedload(models.Visite.client),
-            selectinload(models.Visite.releves_stock).joinedload(models.ReleveStock.produit),
-            selectinload(models.Visite.details_produits).joinedload(models.DetailVisiteProduit.produit),
-            selectinload(models.Visite.veilles_concurrentielles).joinedload(models.VeilleConcurrentielle.concurrent),
+        .filter(
+            models.Visite.statut_validation == 'valide',
+            models.Merchandiser.manager_id == current_user.superviseur_profile.id
         )
         .all()
     )
 
-    # 2. On prépare le fichier Excel en mémoire
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Rapport Marchandiseurs"
+    # 2. On prépare le fichier CSV en mémoire
+    output = io.StringIO()
+    writer = csv.writer(output)
 
-    headers = [
-        "ZONE", "MARCHANDISEUR", "DATE", "BASE", "RESPONSABLE", "CHEF DE ZONE",
-        "HEURE AR", "HEURE DE", "COMMERCIAL", "CONTACT", "NOM CLIENT",
-        "TYPOLOGIE", "LOCALISATION", "LIEU DIT", "TYPE OUTIL", "MARQUE",
-        "ETATS", "FIFO", "RUPTURES", "TYPE INCIDENTS", "ARTICLE", "QUANTITE",
-        "OBSERVATION", "SP", "OP", "VITAL", "TANGUI", "MADIBA", "CEILO",
-        "SANO", "AQUABELLE", "ULTIME LIGHT", "VALCLAIR", "AUTRES", "BG SP",
-        "BG BC", "BG ELIM", "BG GRACEDOM", "BG UCB", "BRASAF", "AUTRES BG",
-        "ED SP", "ED BC", "ED ELIM", "AUTRES ED", "CONCURRENT", "ACTIVITE",
-        "MECANISME", "RESEAU DE DISTRIBUTION", "PLANOGRAMME", "OB PLANOGRAMME",
-        "TYPE CLIENT", "CLIENT DIRECT", "ID", "REJECTION REASON", "DATE VALIDATION"
-    ]
-    ws.append(headers)
+    # 3. On écrit la ligne d'en-tête
+    header = ['ID Visite', 'Date', 'Nom Merchandiser', 'Nom Client', 'Statut', 'Validé par ID']
+    writer.writerow(header)
 
-    for cell in ws[1]:
-        cell.font = Font(bold=True)
-        cell.alignment = Alignment(horizontal="center")
-
-    for visite in visites:
-        ruptures_list = [
-            r.produit.nom_produit for r in visite.releves_stock if r.est_en_rupture and r.produit
+    # 4. On écrit une ligne pour chaque visite
+    for visite in visites_validees:
+        row = [
+            visite.id,
+            visite.date_visite,
+            visite.merchandiser.user.nom,
+            visite.client.nom_client,
+            visite.statut_validation,
+            visite.validateur_id
         ]
-        incidents = [d for d in visite.details_produits if d.type_detail == 'incident']
-        veilles = visite.veilles_concurrentielles
+        writer.writerow(row)
 
-        client_data = visite.client
-        merchandiser_data = visite.merchandiser
+    output.seek(0) # On remet le curseur au début du fichier en mémoire
 
-        row_data = {
-            "ID": visite.id,
-            "DATE": visite.date_visite,
-            "MARCHANDISEUR": merchandiser_data.user.nom if merchandiser_data and merchandiser_data.user else "",
-            "ZONE": merchandiser_data.zone_geographique if merchandiser_data else "",
-            "CHEF DE ZONE": merchandiser_data.manager.user.nom if (merchandiser_data and merchandiser_data.manager and merchandiser_data.manager.user) else "",
-
-            "NOM CLIENT": client_data.nom_client if client_data else "",
-            "TYPOLOGIE": client_data.typologie if client_data else "",
-            "LOCALISATION": client_data.localisation if client_data else "",
-            "CONTACT": client_data.contact if client_data else "",
-            "BASE": client_data.base if client_data else "",
-            "RESPONSABLE": client_data.responsable if client_data else "",
-            "COMMERCIAL": client_data.commercial if client_data else "",
-            "LIEU DIT": client_data.lieu_dit if client_data else "",
-            "RESEAU DE DISTRIBUTION": client_data.reseau_distribution if client_data else "",
-            "TYPE CLIENT": client_data.type_client if client_data else "",
-            "CLIENT DIRECT": "Oui" if client_data and client_data.client_direct else "Non",
-            "REJECTION REASON": visite.rejection_reason,
-            "DATE VALIDATION": visite.date_validation,
-
-            "HEURE AR": visite.heure_debut.strftime("%H:%M:%S") if visite.heure_debut else "",
-            "HEURE DE": visite.heure_fin.strftime("%H:%M:%S") if visite.heure_fin else "",
-
-            "TYPE OUTIL": visite.type_outil,
-            "MARQUE": visite.marque_support,
-            "ETATS": visite.etat_support,
-            "OB PLANOGRAMME": visite.ob_planogramme,
-            "OBSERVATION": visite.observations_generales,
-
-            "FIFO": "Oui" if visite.fifo_respecte else "Non",
-            "PLANOGRAMME": "Oui" if visite.planogramme_respecte else "Non",
-
-            "RUPTURES": "; ".join(ruptures_list),
-            "TYPE INCIDENTS": "; ".join([i.observation for i in incidents if i.observation]),
-            "ARTICLE": "; ".join([i.produit.nom_produit for i in incidents if i.produit]),
-            "QUANTITE": "; ".join([str(i.quantite) for i in incidents]),
-
-            "CONCURRENT": "; ".join([v.concurrent.nom for v in veilles if v.concurrent]),
-            "ACTIVITE": "; ".join([v.activite_observee for v in veilles if v.activite_observee]),
-            "MECANISME": "; ".join([v.mecanisme for v in veilles if v.mecanisme]),
-
-            "SP": visite.sp, "OP": visite.op, "AUTRES": visite.autres,
-            "BG SP": visite.bg_sp, "BG BC": visite.bg_bc, "BG ELIM": visite.bg_elim,
-            "BG GRACEDOM": visite.bg_gracedom, "BG UCB": visite.bg_ucb, "BRASAF": visite.brasaf,
-            "AUTRES BG": visite.autres_bg, "ED SP": visite.ed_sp, "ED BC": visite.ed_bc,
-            "ED ELIM": visite.ed_elim, "AUTRES ED": visite.autres_ed,
-
-            "VITAL": next((r.quantite_en_stock for r in visite.releves_stock if r.produit and r.produit.marque and "VITAL" in r.produit.marque.upper()), ""),
-            "TANGUI": next((r.quantite_en_stock for r in visite.releves_stock if r.produit and r.produit.marque and "TANGUI" in r.produit.marque.upper()), ""),
-            "MADIBA": next((r.quantite_en_stock for r in visite.releves_stock if r.produit and r.produit.marque and "MADIBA" in r.produit.marque.upper()), ""),
-            "CEILO": next((r.quantite_en_stock for r in visite.releves_stock if r.produit and r.produit.marque and "CEILO" in r.produit.marque.upper()), ""),
-            "SANO": next((r.quantite_en_stock for r in visite.releves_stock if r.produit and r.produit.marque and "SANO" in r.produit.marque.upper()), ""),
-            "AQUABELLE": next((r.quantite_en_stock for r in visite.releves_stock if r.produit and r.produit.marque and "AQUABELLE" in r.produit.marque.upper()), ""),
-            "ULTIME LIGHT": next((r.quantite_en_stock for r in visite.releves_stock if r.produit and r.produit.marque and "ULTIME LIGHT" in r.produit.marque.upper()), ""),
-            "VALCLAIR": next((r.quantite_en_stock for r in visite.releves_stock if r.produit and r.produit.marque and "VALCLAIR" in r.produit.marque.upper()), ""),
-        }
-
-        final_row = [row_data.get(h, "") for h in headers]
-        ws.append(final_row)
-
-    virtual_workbook = io.BytesIO()
-    wb.save(virtual_workbook)
-    virtual_workbook.seek(0)
-
+    # 5. On renvoie le fichier
     return StreamingResponse(
-        virtual_workbook,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f"attachment; filename=rapport_equipe_{datetime.date.today()}.xlsx"}
+        output,
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=rapports_valides_{datetime.date.today()}.csv"}
     )
 
 
@@ -523,7 +477,6 @@ def valider_visite(
     
     db_visite.statut_validation = 'valide'
     db_visite.validateur_id = current_user.superviseur_profile.id
-    db_visite.date_validation = datetime.date.today()
     
     db.commit()
     db.refresh(db_visite)
@@ -533,21 +486,23 @@ def valider_visite(
 @app.put("/visites/{visite_id}/rejeter", response_model=schemas.Visite, tags=["Superviseur - Validation"])
 def rejeter_visite(
     visite_id: int,
-    rejection_data: schemas.RejectionData,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
-    """Change le statut d'une visite à 'rejete' et enregistre la raison."""
+    """Change le statut d'une visite à 'rejete'."""
+    # On vérifie que l'utilisateur est bien un superviseur
     if not current_user.superviseur_profile:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Accès réservé aux superviseurs")
 
+    # 1. On récupère la visite depuis la base de données
     db_visite = db.query(models.Visite).filter(models.Visite.id == visite_id).first()
+
+    # 2. On vérifie si la visite existe
     if not db_visite:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Visite non trouvée")
 
     db_visite.statut_validation = 'rejete'
     db_visite.validateur_id = current_user.superviseur_profile.id
-    db_visite.rejection_reason = rejection_data.reason
     
     db.commit()
     db.refresh(db_visite)

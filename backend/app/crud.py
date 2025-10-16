@@ -36,14 +36,14 @@ def update_user(db: Session, user_id: int, user_update: schemas.UserUpdate):
     db.refresh(db_user)
     return db_user
 
-def create_superviseur_profile(db: Session, user_id: int):
-    db_profile = models.Superviseur(user_id=user_id)
+def create_superviseur_profile(db: Session, user_id: int, zone: Optional[str] = None):
+    db_profile = models.Superviseur(user_id=user_id, zone=zone)
     db.add(db_profile)
     db.commit()
     db.refresh(db_profile)
     return db_profile
-def create_merchandiser_profile(db: Session, profile: schemas.MerchandiserCreate):
-    db_profile = models.Merchandiser(**profile.dict())
+def create_merchandiser_profile(db: Session, user_id: int, manager_id: int):
+    db_profile = models.Merchandiser(user_id=user_id, manager_id=manager_id)
     db.add(db_profile)
     db.commit()
     db.refresh(db_profile)
@@ -59,12 +59,11 @@ def create_full_user(db: Session, user_data: schemas.FullUserCreate):
     db_user = create_user(db, user=user_to_create)
     
     if user_data.role_nom.lower() == 'superviseur':
-        create_superviseur_profile(db, user_id=db_user.id)
+        create_superviseur_profile(db, user_id=db_user.id, zone=user_data.zone)
     elif user_data.role_nom.lower() == 'merchandiser':
-        if not user_data.manager_id or not user_data.zone_geographique:
-            raise ValueError("Manager ID et Zone sont requis pour un merchandiser")
-        merchandiser_profile_data = schemas.MerchandiserCreate(user_id=db_user.id, zone_geographique=user_data.zone_geographique, manager_id=user_data.manager_id)
-        create_merchandiser_profile(db, profile=merchandiser_profile_data)
+        if not user_data.manager_id:
+            raise ValueError("Manager ID est requis pour un merchandiser")
+        create_merchandiser_profile(db, user_id=db_user.id, manager_id=user_data.manager_id)
     db.refresh(db_user)
     return db_user
 

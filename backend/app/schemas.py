@@ -1,8 +1,8 @@
 # Fichier: app/schemas.py - VERSION FINALE COMPLÈTE ET INTÉGRALE
 
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, EmailStr
 from typing import Optional, List
-from datetime import date, datetime, time
+from datetime import date, datetime
 
 # ==============================================================================
 # 1. SCHÉMAS DE BASE ET DE CRÉATION (Utilisés pour valider les données entrantes)
@@ -27,14 +27,14 @@ class UserUpdate(BaseModel):
     nom: Optional[str] = None
     email: Optional[EmailStr] = None
     role_id: Optional[int] = None
-    is_active: Optional[bool] = None # <-- Assurez-vous qu'il est là
+    is_active: Optional[bool] = None
 
 # --- Profils Métier (pour les routes de création dédiées) ---
 class SuperviseurCreate(BaseModel):
     user_id: int
+    zone: Optional[str] = None
 class MerchandiserCreate(BaseModel):
     user_id: int
-    zone_geographique: str
     manager_id: int
 
 # --- Création Complète d'Utilisateur (pour l'Admin) ---
@@ -43,7 +43,7 @@ class FullUserCreate(BaseModel):
     email: EmailStr
     password: str
     role_nom: str
-    zone_geographique: Optional[str] = None
+    zone: Optional[str] = None
     manager_id: Optional[int] = None
 
 # --- Données de Référence ---
@@ -52,16 +52,20 @@ class ClientBase(BaseModel):
     contact: Optional[str] = None
     typologie: Optional[str] = None
     localisation: Optional[str] = None
-    base: Optional[str] = None
-    responsable: Optional[str] = None
-    commercial: Optional[str] = None
+    zone: Optional[str] = None
     lieu_dit: Optional[str] = None
-    reseau_distribution: Optional[str] = None
-    type_client: Optional[str] = None
-    client_direct: Optional[bool] = None
-
+    commercial_nom: Optional[str] = None
 class ClientCreate(ClientBase):
     pass
+
+class ClientUpdate(BaseModel):
+    nom_client: Optional[str] = None
+    contact: Optional[str] = None
+    typologie: Optional[str] = None
+    localisation: Optional[str] = None
+    zone: Optional[str] = None
+    lieu_dit: Optional[str] = None
+    commercial_nom: Optional[str] = None
 
 class CategorieProduitBase(BaseModel):
     nom: str
@@ -114,36 +118,6 @@ class VisiteBase(BaseModel):
     observations_generales: str = ''
     fifo_respecte: bool = True
     planogramme_respecte: bool = True
-    heure_debut: Optional[time] = None
-    heure_fin: Optional[time] = None
-    type_outil: Optional[str] = None
-    marque_support: Optional[str] = None
-    etat_support: Optional[str] = None
-    ob_planogramme: Optional[str] = None
-    sp: Optional[int] = None
-
-    @field_validator('heure_debut', 'heure_fin', mode='before')
-    @classmethod
-    def format_time(cls, v):
-        if isinstance(v, str):
-            return datetime.fromisoformat(v.replace('Z', '+00:00')).time()
-        if isinstance(v, datetime):
-            return v.time()
-        return v
-    op: Optional[int] = None
-    autres: Optional[int] = None
-    bg_sp: Optional[int] = None
-    bg_bc: Optional[int] = None
-    bg_elim: Optional[int] = None
-    bg_gracedom: Optional[int] = None
-    bg_ucb: Optional[int] = None
-    brasaf: Optional[int] = None
-    autres_bg: Optional[int] = None
-    ed_sp: Optional[int] = None
-    ed_bc: Optional[int] = None
-    ed_elim: Optional[int] = None
-    autres_ed: Optional[int] = None
-
 class VisiteCreate(VisiteBase):
     releves_stock: List[ReleveStockBase] = []
     details_produits: List[DetailVisiteProduitBase] = []
@@ -173,13 +147,13 @@ class CategorieProduit(CategorieProduitBase):
 class Superviseur(BaseModel):
     id: int
     user: User
+    zone: Optional[str] = None
     class Config:
         from_attributes = True
 
 class Merchandiser(BaseModel):
     id: int
     user: User
-    zone_geographique: Optional[str]
     class Config:
         from_attributes = True
 
@@ -187,13 +161,6 @@ class Client(ClientBase):
     id: int
     class Config:
         from_attributes = True
-
-
-class ClientUpdate(BaseModel):
-    nom_client: Optional[str] = None
-    contact: Optional[str] = None
-    typologie: Optional[str] = None
-    localisation: Optional[str] = None
 
 class Produit(ProduitBase):
     id: int
@@ -257,8 +224,6 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     email: Optional[str] = None
 
-class RejectionData(BaseModel):
-    reason: str
 
 class ActiviteLog(BaseModel):
      id: int
@@ -267,5 +232,3 @@ class ActiviteLog(BaseModel):
      user: Optional[User] = None
      class Config:
          from_attributes = True
-
-
