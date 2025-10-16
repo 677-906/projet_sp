@@ -1,13 +1,11 @@
 # Fichier: app/crud.py - VERSION FINALE COMPLÈTE ET INTÉGRALE
 
-from sqlalchemy.orm import Session, joinedload, selectinload
-from typing import Optional
+from sqlalchemy.orm import Session, joinedload
 from . import models, schemas, security
 
 # --- Utilisateurs et Profils ---
 def get_user_by_email(db: Session, email: str):
-    # On ne précharge plus les profils ici pour éviter les erreurs si la BDD n'est pas à jour
-    return db.query(models.User).options(joinedload(models.User.role)).filter(models.User.email == email).first()
+    return db.query(models.User).options(joinedload(models.User.role), joinedload(models.User.merchandiser_profile), joinedload(models.User.superviseur_profile)).filter(models.User.email == email).first()
 def create_user(db: Session, user: schemas.UserCreate):
     hashed_password = security.get_password_hash(user.password)
     db_user = models.User(email=user.email, nom=user.nom, password_hash=hashed_password, role_id=user.role_id)
@@ -15,16 +13,22 @@ def create_user(db: Session, user: schemas.UserCreate):
     db.commit()
     db.refresh(db_user)
     return db_user
+# Dans app/crud.py
 
+# ... (vos fonctions get_user_by_email, create_user, etc.)
+
+# --- LA FONCTION MANQUANTE EST ICI ---
 def update_user(db: Session, user_id: int, user_update: schemas.UserUpdate):
     """Met à jour un utilisateur dans la base de données."""
     db_user = db.query(models.User).filter(models.User.id == user_id).first()
     if not db_user:
         return None
     
+    # On récupère les données envoyées SANS les valeurs non définies
     update_data = user_update.dict(exclude_unset=True)
     
     for key, value in update_data.items():
+        # Utilise setattr pour mettre à jour les champs dynamiquement
         setattr(db_user, key, value)
             
     db.add(db_user)
@@ -32,20 +36,21 @@ def update_user(db: Session, user_id: int, user_update: schemas.UserUpdate):
     db.refresh(db_user)
     return db_user
 
-def create_superviseur_profile(db: Session, user_id: int, zone: Optional[str] = None):
-    db_profile = models.Superviseur(user_id=user_id, zone=zone)
+def create_superviseur_profile(db: Session, user_id: int):
+    db_profile = models.Superviseur(user_id=user_id)
     db.add(db_profile)
     db.commit()
     db.refresh(db_profile)
     return db_profile
-def create_merchandiser_profile(db: Session, user_id: int, manager_id: int):
-    db_profile = models.Merchandiser(user_id=user_id, manager_id=manager_id)
+def create_merchandiser_profile(db: Session, profile: schemas.MerchandiserCreate):
+    db_profile = models.Merchandiser(**profile.dict())
     db.add(db_profile)
     db.commit()
     db.refresh(db_profile)
     return db_profile
 def create_full_user(db: Session, user_data: schemas.FullUserCreate):
     if user_data.role_nom.lower() == 'administrateur':
+        # On lève une erreur explicite qui sera renvoyée à l'utilisateur
         raise ValueError("La création d'un administrateur n'est pas autorisée.")
     role = db.query(models.Role).filter(models.Role.nom.ilike(user_data.role_nom)).first()
     if not role:
@@ -54,13 +59,16 @@ def create_full_user(db: Session, user_data: schemas.FullUserCreate):
     db_user = create_user(db, user=user_to_create)
     
     if user_data.role_nom.lower() == 'superviseur':
-        create_superviseur_profile(db, user_id=db_user.id, zone=user_data.zone)
+        create_superviseur_profile(db, user_id=db_user.id)
     elif user_data.role_nom.lower() == 'merchandiser':
-        if not user_data.manager_id:
-            raise ValueError("Manager ID est requis pour un merchandiser")
-        create_merchandiser_profile(db, user_id=db_user.id, manager_id=user_data.manager_id)
+        if not user_data.manager_id or not user_data.zone_geographique:
+            raise ValueError("Manager ID et Zone sont requis pour un merchandiser")
+        merchandiser_profile_data = schemas.MerchandiserCreate(user_id=db_user.id, zone_geographique=user_data.zone_geographique, manager_id=user_data.manager_id)
+        create_merchandiser_profile(db, profile=merchandiser_profile_data)
     db.refresh(db_user)
     return db_user
+
+
 
 def delete_user(db: Session, user_id: int):
     db_user = db.query(models.User).filter(models.User.id == user_id).first()
@@ -71,9 +79,6 @@ def delete_user(db: Session, user_id: int):
     return None
 
 # --- Données de Référence ---
-def get_client(db: Session, client_id: int):
-    return db.query(models.Client).filter(models.Client.id == client_id).first()
-
 def get_clients(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.Client).offset(skip).limit(limit).all()
 def create_client(db: Session, client: schemas.ClientCreate):
@@ -83,10 +88,14 @@ def create_client(db: Session, client: schemas.ClientCreate):
     db.refresh(db_client)
     return db_client
 
+
 def delete_client(db: Session, client_id: int):
     """Supprime un client de la base de données."""
     db_client = db.query(models.Client).filter(models.Client.id == client_id).first()
     if db_client:
+        # Attention: si des visites sont liées à ce client, cela peut causer une erreur
+        # d'intégrité référentielle. Une vraie application gérerait ce cas
+        # (ex: suppression en cascade ou anonymisation).
         db.delete(db_client)
         db.commit()
         return db_client
@@ -126,6 +135,7 @@ def delete_produit(db: Session, produit_id: int):
         return db_produit
     return None
 
+# Dans app/crud.py
 def update_produit(db: Session, produit_id: int, produit_update: schemas.ProduitUpdate):
     db_produit = db.query(models.Produit).filter(models.Produit.id == produit_id).first()
     if not db_produit:
@@ -167,37 +177,8 @@ def create_concurrent(db: Session, concurrent: schemas.ConcurrentCreate):
 
 # --- Visites ---
 def create_visite(db: Session, visite: schemas.VisiteCreate, merchandiser_id: int):
-    # On extrait les champs étendus du schéma et on les passe au modèle
-    db_visite = models.Visite(
-        client_id=visite.client_id,
-        merchandiser_id=merchandiser_id,
-        observations_generales=visite.observations_generales,
-        fifo_respecte=visite.fifo_respecte,
-        planogramme_respecte=visite.planogramme_respecte,
-        heure_debut=visite.heure_debut,
-        heure_fin=visite.heure_fin,
-        type_outil=visite.type_outil,
-        marque_support=visite.marque_support,
-        etat_support=visite.etat_support,
-        ob_planogramme=visite.ob_planogramme,
-        sp=visite.sp,
-        op=visite.op,
-        autres=visite.autres,
-        bg_sp=visite.bg_sp,
-        bg_bc=visite.bg_bc,
-        bg_elim=visite.bg_elim,
-        bg_gracedom=visite.bg_gracedom,
-        bg_ucb=visite.bg_ucb,
-        brasaf=visite.brasaf,
-        autres_bg=visite.autres_bg,
-        ed_sp=visite.ed_sp,
-        ed_bc=visite.ed_bc,
-        ed_elim=visite.ed_elim,
-        autres_ed=visite.autres_ed
-    )
+    db_visite = models.Visite(client_id=visite.client_id, merchandiser_id=merchandiser_id, observations_generales=visite.observations_generales, fifo_respecte=visite.fifo_respecte, planogramme_respecte=visite.planogramme_respecte)
     db.add(db_visite)
-
-    # Le reste de la logique pour les listes reste inchangé
     for stock_item in visite.releves_stock:
         db_stock = models.ReleveStock(**stock_item.dict(), visite=db_visite)
         db.add(db_stock)
@@ -207,7 +188,6 @@ def create_visite(db: Session, visite: schemas.VisiteCreate, merchandiser_id: in
     for veille_item in visite.veilles_concurrentielles:
         db_veille = models.VeilleConcurrentielle(**veille_item.dict(), visite=db_visite)
         db.add(db_veille)
-
     db.commit()
     db.refresh(db_visite)
     return db_visite
@@ -217,17 +197,3 @@ def log_activity(db: Session, user_id: int, action: str):
     """Enregistre une nouvelle activité dans le journal."""
     db_log = models.ActiviteLog(user_id=user_id, action=action)
     db.add(db_log)
-
-
-def get_all_visites_for_export(db: Session):
-    return (
-        db.query(models.Visite)
-        .options(
-            joinedload(models.Visite.merchandiser).joinedload(models.Merchandiser.user),
-            joinedload(models.Visite.client),
-            selectinload(models.Visite.releves_stock).joinedload(models.ReleveStock.produit),
-            selectinload(models.Visite.details_produits).joinedload(models.DetailVisiteProduit.produit),
-            selectinload(models.Visite.veilles_concurrentielles).joinedload(models.VeilleConcurrentielle.concurrent),
-        )
-        .all()
-    )

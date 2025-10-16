@@ -40,7 +40,7 @@ class Superviseur(Base):
     __tablename__ = 'superviseurs'
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey('users.id'), unique=True)
-    # zone = Column(String(100), nullable=True) # Temporarily commented out
+    zone = Column(String(100), nullable=True)
     
     user = relationship("User", back_populates="superviseur_profile")
     merchandisers = relationship("Merchandiser", back_populates="manager")

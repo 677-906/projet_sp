@@ -326,44 +326,23 @@ def read_all_visites_en_attente_pour_admin(
     return db.query(models.Visite).filter(models.Visite.statut_validation == 'soumis').all()
 
 @app.get("/superviseurs/", response_model=List[schemas.Superviseur], tags=["Données de Référence"])
-def read_all_superviseurs(
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
-):
-    """
-    Récupère la liste de tous les profils de superviseurs.
-    NOTE: La logique est temporairement désactivée pour éviter les crashs de BDD.
-    """
-    return [] # On retourne une liste vide pour la stabilité
+def read_all_superviseurs(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    """Récupère la liste de tous les profils de superviseurs."""
+    return db.query(models.Superviseur).all()
 
 @app.get("/superviseur/{superviseur_id}/commerciaux", response_model=List[str], tags=["Données de Référence"])
-def read_commerciaux_by_superviseur(
-    superviseur_id: int,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
-):
-    """
-    Récupère la liste des noms de commerciaux uniques basés sur la zone d'un superviseur.
-    NOTE: La logique est temporairement désactivée pour éviter les crashs de BDD.
-    """
-    return [] # On retourne une liste vide pour la stabilité
-
+def read_commerciaux_by_superviseur(superviseur_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    """Récupère la liste des noms de commerciaux uniques basés sur la zone d'un superviseur."""
+    superviseur = db.query(models.Superviseur).filter(models.Superviseur.id == superviseur_id).first()
+    if not superviseur or not superviseur.zone:
+        return []
+    commerciaux = db.query(models.Client.commercial_nom).filter(models.Client.zone == superviseur.zone, models.Client.commercial_nom.isnot(None)).distinct().all()
+    return [c[0] for c in commerciaux]
 
 @app.get("/commercial/{commercial_nom}/clients", response_model=List[schemas.Client], tags=["Données de Référence"])
-def read_clients_by_commercial(
-    commercial_nom: str,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
-):
-    """
-    Récupère la liste des clients pour un nom de commercial donné.
-    NOTE: Renvoie une liste vide pour éviter les crashs si la BDD n'est pas migrée.
-    """
-    try:
-        clients = db.query(models.Client).filter(models.Client.commercial_nom == commercial_nom).all()
-        return clients
-    except Exception:
-        return []
+def read_clients_by_commercial(commercial_nom: str, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    """Récupère la liste des clients pour un nom de commercial donné."""
+    return db.query(models.Client).filter(models.Client.commercial_nom == commercial_nom).all()
 
 @app.get("/superviseur/visites/historique", response_model=List[schemas.VisiteInfo], tags=["Superviseur - Rapports"])
 def read_historique_visites_equipe(
@@ -555,25 +534,6 @@ def get_merchandiser_dashboard_stats(
 @app.get("/clients/", response_model=List[schemas.Client], tags=["Données de Référence"])
 def read_clients(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     return crud.get_clients(db)
-
-@app.get("/clients/{client_id}", response_model=schemas.Client, tags=["Données de Référence"])
-def read_client(client_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
-    db_client = crud.get_client(db, client_id=client_id)
-    if db_client is None:
-        raise HTTPException(status_code=404, detail="Client non trouvé")
-    return db_client
-
-@app.put("/clients/{client_id}", response_model=schemas.Client, tags=["Données de Référence"])
-def update_client_by_user(
-    client_id: int,
-    client_update: schemas.ClientUpdate,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
-):
-    updated_client = crud.update_client(db, client_id=client_id, client_update=client_update)
-    if not updated_client:
-        raise HTTPException(status_code=404, detail="Client non trouvé")
-    return updated_client
 @app.get("/produits/", response_model=List[schemas.Produit], tags=["Données de Référence"])
 def read_produits(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     return crud.get_produits(db)

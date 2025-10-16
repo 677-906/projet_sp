@@ -147,7 +147,7 @@ class CategorieProduit(CategorieProduitBase):
 class Superviseur(BaseModel):
     id: int
     user: User
-    # zone: Optional[str] = None # Temporarily commented out
+    zone: Optional[str] = None
     class Config:
         from_attributes = True
 
