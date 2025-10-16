@@ -1,6 +1,6 @@
 # Fichier: app/crud.py - VERSION FINALE COMPLÈTE ET INTÉGRALE
 
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 from . import models, schemas, security
 
 # --- Utilisateurs et Profils ---
@@ -235,15 +235,9 @@ def get_all_visites_for_export(db: Session):
         .options(
             joinedload(models.Visite.merchandiser).joinedload(models.Merchandiser.user),
             joinedload(models.Visite.client),
-            joinedload(models.Visite.releves_stock).joinedload(
-                models.ReleveStock.produit
-            ),
-            joinedload(models.Visite.details_produits).joinedload(
-                models.DetailVisiteProduit.produit
-            ),
-            joinedload(models.Visite.veilles_concurrentielles).joinedload(
-                models.VeilleConcurrentielle.concurrent
-            ),
+            selectinload(models.Visite.releves_stock).joinedload(models.ReleveStock.produit),
+            selectinload(models.Visite.details_produits).joinedload(models.DetailVisiteProduit.produit),
+            selectinload(models.Visite.veilles_concurrentielles).joinedload(models.VeilleConcurrentielle.concurrent),
         )
         .all()
     )
