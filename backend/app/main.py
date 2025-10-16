@@ -444,6 +444,7 @@ def valider_visite(
     
     db_visite.statut_validation = 'valide'
     db_visite.validateur_id = current_user.superviseur_profile.id
+    db_visite.date_validation = datetime.date.today()
     
     db.commit()
     db.refresh(db_visite)
@@ -656,14 +657,14 @@ def export_full_report(
             "ED ELIM": visite.ed_elim, "AUTRES ED": visite.autres_ed,
 
             # --- Mappage des marques spécifiques (VITAL, TANGUI, etc.) ---
-            "VITAL": next((r.quantite_en_stock for r in visite.releves_stock if r.produit and "VITAL" in r.produit.marque.upper()), ""),
-            "TANGUI": next((r.quantite_en_stock for r in visite.releves_stock if r.produit and "TANGUI" in r.produit.marque.upper()), ""),
-            "MADIBA": next((r.quantite_en_stock for r in visite.releves_stock if r.produit and "MADIBA" in r.produit.marque.upper()), ""),
-            "CEILO": next((r.quantite_en_stock for r in visite.releves_stock if r.produit and "CEILO" in r.produit.marque.upper()), ""),
-            "SANO": next((r.quantite_en_stock for r in visite.releves_stock if r.produit and "SANO" in r.produit.marque.upper()), ""),
-            "AQUABELLE": next((r.quantite_en_stock for r in visite.releves_stock if r.produit and "AQUABELLE" in r.produit.marque.upper()), ""),
-            "ULTIME LIGHT": next((r.quantite_en_stock for r in visite.releves_stock if r.produit and "ULTIME LIGHT" in r.produit.marque.upper()), ""),
-            "VALCLAIR": next((r.quantite_en_stock for r in visite.releves_stock if r.produit and "VALCLAIR" in r.produit.marque.upper()), ""),
+            "VITAL": next((r.quantite_en_stock for r in visite.releves_stock if r.produit and r.produit.marque and "VITAL" in r.produit.marque.upper()), ""),
+            "TANGUI": next((r.quantite_en_stock for r in visite.releves_stock if r.produit and r.produit.marque and "TANGUI" in r.produit.marque.upper()), ""),
+            "MADIBA": next((r.quantite_en_stock for r in visite.releves_stock if r.produit and r.produit.marque and "MADIBA" in r.produit.marque.upper()), ""),
+            "CEILO": next((r.quantite_en_stock for r in visite.releves_stock if r.produit and r.produit.marque and "CEILO" in r.produit.marque.upper()), ""),
+            "SANO": next((r.quantite_en_stock for r in visite.releves_stock if r.produit and r.produit.marque and "SANO" in r.produit.marque.upper()), ""),
+            "AQUABELLE": next((r.quantite_en_stock for r in visite.releves_stock if r.produit and r.produit.marque and "AQUABELLE" in r.produit.marque.upper()), ""),
+            "ULTIME LIGHT": next((r.quantite_en_stock for r in visite.releves_stock if r.produit and r.produit.marque and "ULTIME LIGHT" in r.produit.marque.upper()), ""),
+            "VALCLAIR": next((r.quantite_en_stock for r in visite.releves_stock if r.produit and r.produit.marque and "VALCLAIR" in r.produit.marque.upper()), ""),
         }
 
         final_row = [row_data.get(h, "") for h in headers]
