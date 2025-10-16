@@ -6,7 +6,8 @@ from . import models, schemas, security
 
 # --- Utilisateurs et Profils ---
 def get_user_by_email(db: Session, email: str):
-    return db.query(models.User).options(joinedload(models.User.role), joinedload(models.User.merchandiser_profile), joinedload(models.User.superviseur_profile)).filter(models.User.email == email).first()
+    # On ne précharge plus les profils ici pour éviter les erreurs si la BDD n'est pas à jour
+    return db.query(models.User).options(joinedload(models.User.role)).filter(models.User.email == email).first()
 def create_user(db: Session, user: schemas.UserCreate):
     hashed_password = security.get_password_hash(user.password)
     db_user = models.User(email=user.email, nom=user.nom, password_hash=hashed_password, role_id=user.role_id)
