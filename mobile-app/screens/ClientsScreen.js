@@ -1,11 +1,16 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, SafeAreaView, TouchableOpacity } from 'react-native';
+import axios from 'axios';
 import { AuthContext } from '../context/AuthContext';
 import axiosInstance from '../api/axiosConfig';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { useNavigation } from '@react-navigation/native';
-import RNPickerSelect from 'react-native-picker-select';
+import { useNavigation } from '@react-navigation/native'; // Il manque cet import !
 
+// --- À CONFIGURER ---
+const API_URL = 'http://10.89.65.117:8000';
+// --------------------
+
+// --- CORRECTION N°1 : ClientItem doit accepter 'client' et 'onPress' ---
 const ClientItem = ({ client, onPress }) => (
   <TouchableOpacity style={styles.itemContainer} onPress={onPress}>
     <View style={styles.itemIcon}>
@@ -19,17 +24,17 @@ const ClientItem = ({ client, onPress }) => (
   </TouchableOpacity>
 );
 
+
 export default function ClientsScreen() {
-  const [superviseurs, setSuperviseurs] = useState([]);
-  const [selectedSuperviseur, setSelectedSuperviseur] = useState(null);
-  const [commerciaux, setCommerciaux] = useState([]);
-  const [selectedCommercial, setSelectedCommercial] = useState(null);
   const [clients, setClients] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const { userToken } = useContext(AuthContext);
   
+  // Il faut initialiser la navigation ici
   const navigation = useNavigation();
 
+  // Cette fonction est parfaite
   const handleClientPress = (client) => {
     navigation.navigate('VisitForm', { 
       clientId: client.id, 
@@ -37,110 +42,56 @@ export default function ClientsScreen() {
     });
   };
 
-  useEffect(() => {
-    const fetchSuperviseurs = async () => {
-      try {
-        const response = await axiosInstance.get('/superviseurs/');
-        const superviseurItems = response.data.map(s => ({
-          label: s.user.nom,
-          value: s.id,
-        }));
-        setSuperviseurs(superviseurItems);
-      } catch (e) {
-        setError("Impossible de charger les superviseurs.");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchSuperviseurs();
+  // Cette fonction va chercher les données sur le backend
+  const fetchClients = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const response = await axios.get(`${API_URL}/clients/`, {
+        headers: {
+          // On ajoute le token à la requête pour être autorisé
+          'Authorization': `Bearer ${userToken}`
+        }
+      });
+
+      setClients(response.data); // On stocke la liste des clients dans notre état
+
+    } catch (e) {
+      console.error("Erreur lors de la récupération des clients", e);
+      setError("Impossible de charger la liste des clients.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // useEffect se déclenche quand l'écran s'affiche pour la première fois
+   useEffect(() => {
+    fetchClients();
   }, []);
 
-  const handleSuperviseurChange = async (value) => {
-    setSelectedSuperviseur(value);
-    setSelectedCommercial(null);
-    setClients([]);
-    if (value) {
-      setIsLoading(true);
-      try {
-        const response = await axiosInstance.get(`/superviseur/${value}/commerciaux`);
-        setCommerciaux(response.data.map(name => ({ label: name, value: name })));
-      } catch (e) {
-        setError("Impossible de charger les commerciaux pour ce superviseur.");
-        setCommerciaux([]);
-      } finally {
-        setIsLoading(false);
-      }
-    } else {
-      setCommerciaux([]);
-    }
-  };
+  if (isLoading) {
+    return <View style={styles.center}><ActivityIndicator size="large" color="#007bff" /></View>;
+  }
 
-  const handleCommercialChange = async (value) => {
-    setSelectedCommercial(value);
-    setClients([]);
-    if (value) {
-      setIsLoading(true);
-      try {
-        const response = await axiosInstance.get(`/commercial/${value}/clients`);
-        setClients(response.data);
-      } catch (e) {
-        setError("Impossible de charger les clients pour ce commercial.");
-        setClients([]);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-  };
-
-  const renderContent = () => {
-    if (isLoading && !superviseurs.length) {
-      return <View style={styles.center}><ActivityIndicator size="large" color="#007bff" /></View>;
-    }
-  
-    if (error) {
-      return <View style={styles.center}><Text style={styles.errorText}>{error}</Text></View>;
-    }
-
-    return (
-      <>
-        <FlatList
-          data={clients}
-          renderItem={({ item }) => (
-            <ClientItem
-              client={item}
-              onPress={() => handleClientPress(item)}
-            />
-          )}
-          keyExtractor={item => item.id.toString()}
-          ListEmptyComponent={!isLoading && selectedCommercial ? <Text style={styles.placeholderText}>Aucun client trouvé pour ce commercial.</Text> : null}
-        />
-        {isLoading && <ActivityIndicator style={styles.listLoading} size="small" color="#007bff" />}
-      </>
-    );
+  if (error) {
+    return <View style={styles.center}><Text style={styles.errorText}>{error}</Text></View>;
   }
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.pickerContainer}>
-        <RNPickerSelect
-          onValueChange={handleSuperviseurChange}
-          items={superviseurs}
-          placeholder={{ label: "Sélectionner un Chef de Zone...", value: null }}
-          style={pickerSelectStyles}
-          value={selectedSuperviseur}
-        />
-        {selectedSuperviseur && (
-          <RNPickerSelect
-            onValueChange={handleCommercialChange}
-            items={commerciaux}
-            placeholder={{ label: "Sélectionner un Commercial...", value: null }}
-            style={pickerSelectStyles}
-            value={selectedCommercial}
-            disabled={!selectedSuperviseur}
+      {/* --- CORRECTION N°2 : La FlatList appelle ClientItem correctement --- */}
+      <FlatList
+        data={clients}
+        renderItem={({ item }) => (
+          <ClientItem
+            client={item}
+            onPress={() => handleClientPress(item)}
           />
         )}
-      </View>
-      {renderContent()}
+        keyExtractor={item => item.id.toString()}
+        ListHeaderComponent={<Text style={styles.header}>Sélectionner un Client</Text>}
+      />
     </SafeAreaView>
   );
 }
@@ -155,6 +106,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  header: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#343a40',
+    padding: 20,
+    paddingBottom: 10,
+  },
   itemContainer: {
     backgroundColor: '#ffffff',
     padding: 15,
@@ -163,6 +121,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     flexDirection: 'row',
     alignItems: 'center',
+    // Ombre
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.20,
@@ -189,49 +148,5 @@ const styles = StyleSheet.create({
   errorText: {
     color: 'red',
     fontSize: 16,
-    textAlign: 'center',
-    margin: 20,
-  },
-  pickerContainer: {
-    paddingHorizontal: 16,
-    paddingTop: 20,
-    paddingBottom: 10,
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#dee2e6',
-  },
-  placeholderText: {
-    textAlign: 'center',
-    marginTop: 20,
-    fontSize: 16,
-    color: '#6c757d',
-  },
-  listLoading: {
-    marginVertical: 20,
   }
-});
-
-const pickerSelectStyles = StyleSheet.create({
-  inputIOS: {
-    fontSize: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 10,
-    borderWidth: 1,
-    borderColor: 'gray',
-    borderRadius: 4,
-    color: 'black',
-    paddingRight: 30,
-    marginBottom: 10,
-  },
-  inputAndroid: {
-    fontSize: 16,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderWidth: 0.5,
-    borderColor: 'purple',
-    borderRadius: 8,
-    color: 'black',
-    paddingRight: 30,
-    marginBottom: 10,
-  },
 });

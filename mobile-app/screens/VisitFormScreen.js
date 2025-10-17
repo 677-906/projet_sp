@@ -10,18 +10,15 @@ const DynamicSection = ({ title, items, setItems, listForPicker, pickerPlacehold
   const handleUpdateItem = (key, field, value) => { setItems(prev => prev.map(item => item.key === key ? { ...item, [field]: value } : item)); };
   const handleRemoveItem = (key) => { setItems(prev => prev.filter(item => item.key !== key)); };
 
-  // On calcule l'ensemble des IDs déjà sélectionnés dans cette section
   const selectedIds = new Set(items.map(item => item.id_field));
 
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>{title}</Text>
       {items.map((item) => {
-        // --- MODIFICATION N°1 : On calcule les options disponibles pour CETTE ligne ---
         const availableOptions = listForPicker.filter(
           option => !selectedIds.has(option.value) || option.value === item.id_field
         );
-        // ------------------------------------------------------------------------
 
         return (
           <View key={item.key} style={styles.dynamicItemContainer}>
@@ -30,7 +27,6 @@ const DynamicSection = ({ title, items, setItems, listForPicker, pickerPlacehold
             </TouchableOpacity>
             <RNPickerSelect
               onValueChange={(value) => handleUpdateItem(item.key, 'id_field', value)}
-              // On utilise la nouvelle liste filtrée
               items={availableOptions}
               placeholder={{ label: pickerPlaceholder, value: null }}
               style={pickerSelectStyles}
@@ -59,13 +55,11 @@ const DynamicSection = ({ title, items, setItems, listForPicker, pickerPlacehold
         );
       })}
 
-      {/* --- MODIFICATION N°2 : Le bouton "Ajouter" ne s'affiche que s'il reste des options --- */}
       {items.length < listForPicker.length && (
         <TouchableOpacity style={styles.addButton} onPress={handleAddItem}>
           <Text style={styles.addButtonText}>+ Ajouter une Ligne</Text>
         </TouchableOpacity>
       )}
-      {/* ------------------------------------------------------------------------------------- */}
     </View>
   );
 };
@@ -84,20 +78,65 @@ export default function VisitFormScreen({ route, navigation }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Nouveaux états pour la sélection de zone/commercial
+  const [superviseurs, setSuperviseurs] = useState([]);
+  const [selectedSuperviseur, setSelectedSuperviseur] = useState(null);
+  const [commerciaux, setCommerciaux] = useState([]);
+  const [selectedCommercial, setSelectedCommercial] = useState(null);
+  const [lieuDit, setLieuDit] = useState('');
+  const [zone, setZone] = useState('');
+
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [produitsRes, concurrentsRes] = await Promise.all([
+        const [produitsRes, concurrentsRes, superviseursRes, clientRes] = await Promise.all([
           axiosInstance.get('/produits/'),
-          axiosInstance.get('/concurrents/')
+          axiosInstance.get('/concurrents/'),
+          axiosInstance.get('/superviseurs/'),
+          axiosInstance.get(`/clients/${clientId}`)
         ]);
+
         setProduitsForPicker(produitsRes.data.map(p => ({ label: p.nom_produit, value: p.id })));
         setConcurrentsForPicker(concurrentsRes.data.map(c => ({ label: c.nom, value: c.id })));
-      } catch (error) { Alert.alert("Erreur", "Impossible de charger les données initiales."); }
+        setSuperviseurs(superviseursRes.data.map(s => ({ label: s.user.nom, value: s.id, zone: s.zone })));
+
+        const clientData = clientRes.data;
+        if (clientData) {
+            setZone(clientData.zone || '');
+            setSelectedCommercial(clientData.commercial_nom || null);
+            setLieuDit(clientData.lieu_dit || '');
+            if (clientData.zone) {
+                const matchingSuperviseur = superviseursRes.data.find(s => s.zone === clientData.zone);
+                if (matchingSuperviseur) {
+                    setSelectedSuperviseur(matchingSuperviseur.id);
+                }
+            }
+        }
+      } catch (error) {
+        Alert.alert("Erreur", "Impossible de charger les données initiales.");
+        console.error("Fetch initial data error:", error.response?.data || error);
+      }
       finally { setIsLoading(false); }
     };
     fetchData();
-  }, []);
+  }, [clientId]);
+
+  useEffect(() => {
+    if (selectedSuperviseur) {
+      const fetchCommerciaux = async () => {
+        try {
+          const response = await axiosInstance.get(`/superviseur/${selectedSuperviseur}/commerciaux`);
+          setCommerciaux(response.data.map(name => ({ label: name, value: name })));
+        } catch (error) {
+          Alert.alert("Erreur", "Impossible de charger les commerciaux.");
+          setCommerciaux([]);
+        }
+      };
+      fetchCommerciaux();
+    } else {
+      setCommerciaux([]);
+    }
+  }, [selectedSuperviseur]);
   
   const handleSubmit = async () => {
     setIsSubmitting(true);
@@ -114,9 +153,17 @@ export default function VisitFormScreen({ route, navigation }) {
       veilles_concurrentielles: veilles_list,
     };
 
+    const clientUpdateData = {
+        zone,
+        commercial_nom: selectedCommercial,
+        lieu_dit: lieuDit,
+    };
+
     try {
+      await axiosInstance.put(`/clients/${clientId}`, clientUpdateData);
       await axiosInstance.post('/visites/', visiteData);
-      Alert.alert('Succès', 'Rapport soumis.');
+
+      Alert.alert('Succès', 'Rapport soumis et client mis à jour.');
       navigation.goBack();
     } catch (error) {
       console.error("Erreur soumission", error.response?.data || error);
@@ -139,7 +186,44 @@ export default function VisitFormScreen({ route, navigation }) {
         </View>
         
         <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Résumé</Text>
+            <Text style={styles.sectionTitle}>Informations Client</Text>
+            <View style={styles.fieldContainer}>
+                <Text style={styles.label}>Chef de Zone</Text>
+                <RNPickerSelect
+                    onValueChange={(value, index) => {
+                        setSelectedSuperviseur(value);
+                        const selected = superviseurs.find(s => s.value === value);
+                        setZone(selected ? selected.zone : '');
+                    }}
+                    items={superviseurs}
+                    placeholder={{ label: "Sélectionner un chef de zone...", value: null }}
+                    style={pickerSelectStyles}
+                    value={selectedSuperviseur}
+                />
+            </View>
+            <View style={styles.fieldContainer}>
+                <Text style={styles.label}>Zone</Text>
+                <TextInput style={styles.input} value={zone} onChangeText={setZone} placeholder="Zone (automatique)"/>
+            </View>
+            <View style={styles.fieldContainer}>
+                <Text style={styles.label}>Commercial</Text>
+                <RNPickerSelect
+                    onValueChange={(value) => setSelectedCommercial(value)}
+                    items={commerciaux}
+                    placeholder={{ label: "Sélectionner un commercial...", value: null }}
+                    style={pickerSelectStyles}
+                    value={selectedCommercial}
+                    disabled={!selectedSuperviseur}
+                />
+            </View>
+            <View style={styles.fieldContainer}>
+                <Text style={styles.label}>Lieu-dit / Secteur</Text>
+                <TextInput style={styles.input} value={lieuDit} onChangeText={setLieuDit} placeholder="Saisir le lieu-dit ou secteur"/>
+            </View>
+        </View>
+
+        <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Résumé de la Visite</Text>
             <View style={styles.staticSwitchContainer}><Text style={styles.label}>FIFO respecté</Text><Switch value={fifo} onValueChange={setFifo} /></View>
             <View style={styles.staticSwitchContainer}><Text style={styles.label}>Planogramme respecté</Text><Switch value={planogramme} onValueChange={setPlanogramme} /></View>
         </View>
@@ -181,6 +265,8 @@ const styles = StyleSheet.create({
     switchContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 15 },
     label: { fontSize: 16, color: '#444' },
     textArea: { height: 100, textAlignVertical: 'top', borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 10, margin: 15, fontSize: 16 },
+    fieldContainer: { paddingHorizontal: 15, paddingVertical: 10 },
+    input: { height: 45, borderWidth: 1, borderColor: '#ccc', borderRadius: 8, paddingHorizontal: 10, marginTop: 5, fontSize: 16 },
 });
 
 const pickerSelectStyles = StyleSheet.create({

@@ -212,8 +212,8 @@ class VisiteDetail(Visite):
     merchandiser: Merchandiser
     client: Client
     releves_stock: List[ReleveStock] = []
-    details_produits: List[DetailVisiteProduit] = []
-    veilles_concurrentielles: List[VeilleConcurrentielle] = []
+    details_produits: List[DetailVisiteProduitBase] = []
+    veilles_concurrentielles: List[VeilleConcurrentielleBase] = []
     class Config:
         from_attributes = True
 
