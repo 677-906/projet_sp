@@ -1,0 +1,50 @@
+{
+  "expo": {
+    "name": "Source du Pays",
+    "slug": "mobile-app",
+    "version": "1.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.jenny034.sourcedupaysapp",
+      "jsEngine": "hermes"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#FFFFFF"
+      },
+      "package": "com.jenny034.sourcedupaysapp",
+      "jsEngine": "hermes"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ],
+      "expo-splash-screen"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "e95ec4b9-72a9-4e8e-a32a-86648098e524"
+      }
+    }
+  }
+}

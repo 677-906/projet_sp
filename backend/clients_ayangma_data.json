@@ -1,0 +1,315 @@
+{
+  "Chantal": [
+    {
+      "nom": "ABAO",
+      "typologie": "1/2 GROSSISTE",
+      "localisation": "BONABERI",
+      "lieu_dit": "FACE AFRIQUE GAZ",
+      "contact": "697768472"
+    },
+    {
+      "nom": "AMINA GARE ROUTIER",
+      "typologie": "GROSSISTE ",
+      "localisation": "BONABERI",
+      "lieu_dit": "GARE ROUTIERE",
+      "contact": "697137192"
+    },
+    {
+      "nom": "ANGELA CITY",
+      "typologie": "RESTAURANTS",
+      "localisation": "BESSEKE",
+      "lieu_dit": "TROPICANA",
+      "contact": "696841441"
+    },
+    {
+      "nom": "ETS FEDA",
+      "typologie": "1/2 GROSSISTE",
+      "localisation": "BONABERI",
+      "lieu_dit": "CENTRE CAISSE",
+      "contact": "691202507"
+    },
+    {
+      "nom": "ETS GLOBAL L&E",
+      "typologie": "GROSSISTE ",
+      "localisation": "BONABERI",
+      "lieu_dit": "FACE CARREFOUR MARKET",
+      "contact": "672514993"
+    },
+    {
+      "nom": "HELEN NGEH",
+      "typologie": "1/2 GROSSISTE",
+      "localisation": "BONABERI",
+      "lieu_dit": "FACE SANTA LUCIA ",
+      "contact": "670292937"
+    },
+    {
+      "nom": "KABILA NDOBO",
+      "typologie": "GROSSISTE",
+      "localisation": "BONABERI",
+      "lieu_dit": "NDOBO MINISTERE SOYA",
+      "contact": "698539444"
+    },
+    {
+      "nom": "MME NGEM NDEH",
+      "typologie": "GROSSISTE ",
+      "localisation": "BONABERI",
+      "lieu_dit": "MABANDA WAMBA",
+      "contact": "654147400"
+    },
+    {
+      "nom": "NGO ANICET FON",
+      "typologie": "GROSSISTE ",
+      "localisation": "BONABERI",
+      "lieu_dit": "CENTRE CAISSE FACE EGLISE EEC",
+      "contact": "675531921"
+    },
+    {
+      "nom": "SODISPAR SARL",
+      "typologie": "SUPERETTES",
+      "localisation": "BONABERI",
+      "lieu_dit": "CARREFOUR CENTRE CAISSE",
+      "contact": "691386556"
+    },
+    {
+      "nom": "STE BAO GAME SARL",
+      "typologie": "GROSSISTE ",
+      "localisation": "BONABERI",
+      "lieu_dit": "CARREFOUR MUTZIG",
+      "contact": "690621809"
+    },
+    {
+      "nom": "YAMDJEU JESSY",
+      "typologie": "1/2 GROSSISTE",
+      "localisation": "BONABERI",
+      "lieu_dit": "DERRIERE CHATEAUX",
+      "contact": "675830364"
+    }
+  ],
+  "Evans": [
+    {
+      "nom": "BOULANGERIE DU RAIL",
+      "typologie": "SUPERETTES",
+      "localisation": "BONABERI",
+      "lieu_dit": "RAILS",
+      "contact": "691036685"
+    },
+    {
+      "nom": "BOULANGERIE EXCLUSIVE",
+      "typologie": "SUPERETTES",
+      "localisation": "BONABERI",
+      "lieu_dit": "MARCHE MABANDA",
+      "contact": "658874891"
+    },
+    {
+      "nom": "BOULANGERIE SAWA",
+      "typologie": "SUPERETTES",
+      "localisation": "BONABERI",
+      "lieu_dit": "BONAMBAPPE",
+      "contact": "694401124"
+    },
+    {
+      "nom": "COLINCE PLANET",
+      "typologie": "GROSSISTE ",
+      "localisation": "BONABERI",
+      "lieu_dit": "FORET BAR",
+      "contact": "653636365"
+    },
+    {
+      "nom": "ETS STALLOME",
+      "typologie": "GROSSISTE ",
+      "localisation": "BONABERI",
+      "lieu_dit": "GRAND HANGARD",
+      "contact": "650692765"
+    },
+    {
+      "nom": "EWOH PROSPER MAYARH",
+      "typologie": "GROSSISTE ",
+      "localisation": "BONABERI",
+      "lieu_dit": "LYCEE DE MABANDA",
+      "contact": "677796716"
+    },
+    {
+      "nom": "JOLIANNETTE SARL",
+      "typologie": "SUPERETTES",
+      "localisation": "BONABERI",
+      "lieu_dit": "APRES LYCEE POLYVALENT DE BONABERI",
+      "contact": "696685071"
+    },
+    {
+      "nom": "KVS SARL",
+      "typologie": "SUPERETTES",
+      "localisation": "BONABERI",
+      "lieu_dit": "MARCHE GRAND BAOBAB",
+      "contact": "695530480"
+    },
+    {
+      "nom": "LANDA BAR",
+      "typologie": "GROSSISTE",
+      "localisation": "BONABERI",
+      "lieu_dit": "GARAGE SP",
+      "contact": "677692199"
+    },
+    {
+      "nom": "PETIT PRIX",
+      "typologie": "GROSSISTE ",
+      "localisation": "BONABERI",
+      "lieu_dit": "MARCHE MABANDA",
+      "contact": "677322816"
+    },
+    {
+      "nom": "SANTANA",
+      "typologie": "GROSSISTE ",
+      "localisation": "BONABERI",
+      "lieu_dit": "BOCOM ENTREE ISENBECK",
+      "contact": "675191849"
+    },
+    {
+      "nom": "SOCIETE SAINTE REBECCA SARL",
+      "typologie": "SUPERETTES",
+      "localisation": "BONABERI",
+      "lieu_dit": "CARREFOUR MUTZIG",
+      "contact": "651282036"
+    },
+    {
+      "nom": "SUPERETTE SIAKA",
+      "typologie": "SUPERETTES",
+      "localisation": "BONABERI",
+      "lieu_dit": "BESSEKE",
+      "contact": "677832589"
+    },
+    {
+      "nom": "TAMOLA MICHEL",
+      "typologie": "GROSSISTE ",
+      "localisation": "BONABERI",
+      "lieu_dit": "MABANDA GENDARMERIE",
+      "contact": "690361483"
+    }
+  ],
+  "Nelly": [
+    {
+      "nom": "DOMINO MABANDA",
+      "typologie": "SUPERETTES",
+      "localisation": "BONABERI",
+      "lieu_dit": "MARCHE MABANDA",
+      "contact": "656183774"
+    }
+  ],
+  "Valerie": [
+    {
+      "nom": "ELVIS DOLLAR",
+      "typologie": "GROSSISTE",
+      "localisation": "BONABERI",
+      "lieu_dit": "PÉAGE TIKO",
+      "contact": "671467422"
+    },
+    {
+      "nom": "ETS PERFORMANCES",
+      "typologie": "GROSSISTE ",
+      "localisation": "BONABERI",
+      "lieu_dit": "MABANDA PONT DU BOIS",
+      "contact": "675686878"
+    },
+    {
+      "nom": "FEA  ASANG",
+      "typologie": "GROSSISTE",
+      "localisation": "BEKOKO",
+      "lieu_dit": "BABENGA",
+      "contact": "676666630"
+    },
+    {
+      "nom": "LEUSSEU ARISTIDE",
+      "typologie": "GROSSISTE ",
+      "localisation": "BONABERI",
+      "lieu_dit": "KWASSA KWASSA",
+      "contact": "676327619"
+    },
+    {
+      "nom": "MAMA BONHEUR",
+      "typologie": "GROSSISTE",
+      "localisation": "BOMONO",
+      "lieu_dit": "APRES STATION BLESSING",
+      "contact": "693256287"
+    },
+    {
+      "nom": "MIEGUIM PIERRE",
+      "typologie": "1/2 GROSSISTE",
+      "localisation": "BONABERI",
+      "lieu_dit": "AVANT RAIL ENTREE PMUC",
+      "contact": "699030315"
+    },
+    {
+      "nom": "MME DISSAKE",
+      "typologie": "GROSSISTE",
+      "localisation": "BONABERI",
+      "lieu_dit": "RAIL",
+      "contact": "681980575"
+    },
+    {
+      "nom": "MR ASOEGWE CLETUS",
+      "typologie": "GROSSISTE ",
+      "localisation": "BONABERI",
+      "lieu_dit": "AVANT PONT MOUNGO",
+      "contact": "677629437"
+    },
+    {
+      "nom": "MR MOTUBA MAWUSE",
+      "typologie": "GROSSISTE ",
+      "localisation": "BONABERI",
+      "lieu_dit": "BONENDALLE",
+      "contact": "652243493"
+    },
+    {
+      "nom": "PLANET STORE",
+      "typologie": "1/2 GROSSISTE",
+      "localisation": "BONABERI",
+      "lieu_dit": "BONENDALLE ABATTOIR",
+      "contact": "698528750"
+    },
+    {
+      "nom": "STE ARA LTD",
+      "typologie": "GROSSISTE ",
+      "localisation": "BONABERI",
+      "lieu_dit": "KWASSA KWASSA",
+      "contact": "679488859"
+    }
+  ],
+  "Dief": [
+    {
+      "nom": "ETS ANGELES",
+      "typologie": "GROSSISTE ",
+      "localisation": "BONABERI",
+      "lieu_dit": "PETIT PONT BESSEKE",
+      "contact": "696841441"
+    },
+    {
+      "nom": "ETS NGUEPI",
+      "typologie": "GROSSISTE ",
+      "localisation": "BONABERI",
+      "lieu_dit": "FORET BAR",
+      "contact": "675757106"
+    },
+    {
+      "nom": "JAPONAIS",
+      "typologie": "1/2 GROSSISTE",
+      "localisation": "BONABERI",
+      "lieu_dit": "SANTA LUCIA FACE AFRIQUE GAZ",
+      "contact": "679804655"
+    }
+  ],
+  "Josepha": [
+    {
+      "nom": "PLENITUDE SARL",
+      "typologie": "SUPERETTES",
+      "localisation": "BONABERI",
+      "lieu_dit": "MINISTERE DU SOYA",
+      "contact": "674610822"
+    },
+    {
+      "nom": "sao market beedi",
+      "typologie": "SUPERETTES",
+      "localisation": "BEEDI",
+      "lieu_dit": "EN FACE PB MALANGUE",
+      "contact": "696593247"
+    }
+  ]
+}

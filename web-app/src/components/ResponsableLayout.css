@@ -1,0 +1,91 @@
+/* src/components/ResponsableLayout.css */
+
+.responsable-layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* Menu latéral avec une couleur verte pour différencier */
+.responsable-sidebar {
+  width: 250px;
+  background-color: #28a745; /* Vert pour Responsable */
+  color: white;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+.responsable-sidebar .sidebar-header h3 {
+  text-align: center;
+  margin-top: 0;
+  padding-bottom: 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.responsable-sidebar .nav-list {
+  list-style: none;
+  padding: 0;
+  margin-top: 30px;
+  flex-grow: 1;
+}
+
+.responsable-sidebar .nav-list a {
+  color: #e9ecef;
+  text-decoration: none;
+  display: block;
+  padding: 12px 15px;
+  border-radius: 5px;
+  margin-bottom: 5px;
+  transition: background-color 0.2s;
+}
+
+/* Style pour le lien actif */
+.responsable-sidebar .nav-list a.active {
+  background-color: #1e7e34; /* Vert plus foncé */
+  color: white;
+  font-weight: bold;
+}
+
+.responsable-sidebar .nav-list a:hover {
+  background-color: #218838;
+}
+
+.responsable-content {
+  flex-grow: 1;
+  background-color: #f8f9fa; /* Fond principal gris clair */
+  display: flex;
+  flex-direction: column;
+}
+
+.responsable-content .top-navbar {
+  background-color: white;
+  padding: 12px 24px;
+  border-bottom: 1px solid #e0e0e0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.responsable-content .navbar-spacer {
+  flex: 1;
+}
+
+.responsable-sidebar .sidebar-logout-button {
+  background-color: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 1px solid white;
+  padding: 10px;
+  width: 100%;
+  margin-top: 40px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.responsable-sidebar .sidebar-logout-button:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+}

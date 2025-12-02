@@ -1,0 +1,110 @@
+/* src/pages/ExportExcelPage.css */
+
+.export-container {
+  padding: 30px;
+}
+
+.export-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 2px solid #e9ecef;
+}
+
+.export-header h1 {
+  margin: 0;
+  color: #333;
+  font-size: 28px;
+}
+
+.export-button {
+  background-color: #28a745;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 5px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.export-button:hover:not(:disabled) {
+  background-color: #218838;
+}
+
+.export-button:disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
+}
+
+.export-stats {
+  background-color: #e7f3ff;
+  padding: 15px 20px;
+  border-radius: 5px;
+  margin-bottom: 20px;
+  display: flex;
+  gap: 30px;
+}
+
+.export-stats p {
+  margin: 0;
+  color: #333;
+  font-size: 16px;
+}
+
+.export-stats strong {
+  color: #007bff;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: #6c757d;
+  font-size: 18px;
+}
+
+.visites-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.visites-table thead {
+  background-color: #007bff;
+  color: white;
+}
+
+.visites-table th {
+  padding: 15px;
+  text-align: left;
+  font-weight: bold;
+}
+
+.visites-table td {
+  padding: 12px 15px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.visites-table tbody tr {
+  transition: background-color 0.2s;
+}
+
+.visites-table tbody tr:hover {
+  background-color: #f8f9fa;
+}
+
+.visites-table tbody tr.selected {
+  background-color: #e7f3ff;
+}
+
+.visites-table input[type="checkbox"] {
+  cursor: pointer;
+  width: 18px;
+  height: 18px;
+}
