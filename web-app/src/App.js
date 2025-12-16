@@ -18,6 +18,7 @@ import ClientManagementPage from './pages/ClientManagementPage';
 import CommercialManagementPage from './pages/CommercialManagementPage';
 import ZoneManagementPage from './pages/ZoneManagementPage';
 import ExportExcelPage from './pages/ExportExcelPage';
+import RejectedReportsPage from './pages/RejectedReportsPage';
 import HomeRedirector from './pages/HomeRedirector';
 import './App.css';
 
@@ -60,6 +61,7 @@ function App() {
         <Route index element={<Navigate to="dashboard" />} />
         <Route path="dashboard" element={<DashboardPage />} />
         <Route path="validations" element={<ValidationPage />} />
+        <Route path="rejetes" element={<RejectedReportsPage />} />
         <Route path="historique" element={<SupervisorHistoryPage />} />
         <Route path="visite/:visiteId" element={<VisitDetailPage />} />
         <Route path="export" element={<ExportExcelPage />} />
@@ -70,6 +72,7 @@ function App() {
         <Route index element={<Navigate to="dashboard" />} />
         <Route path="dashboard" element={<DashboardPage />} />
         <Route path="validations" element={<ValidationPage />} />
+        <Route path="rejetes" element={<RejectedReportsPage />} />
         <Route path="historique" element={<SupervisorHistoryPage />} />
         <Route path="visite/:visiteId" element={<VisitDetailPage />} />
         <Route path="chefs-zone" element={<UserManagementPage />} />

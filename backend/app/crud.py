@@ -2,6 +2,7 @@
 
 from sqlalchemy.orm import Session, joinedload
 from . import models, schemas, security
+from .geolocation import verifier_presence_sur_site
 
 # --- Utilisateurs et Profils ---
 def get_user_by_email(db: Session, email: str):
@@ -352,6 +353,20 @@ def create_visite(db: Session, visite: schemas.VisiteCreate, merchandiser_id: in
     for veille_item in visite.veilles_concurrentielles:
         db_veille = models.VeilleConcurrentielle(**veille_item.dict(), visite=db_visite)
         db.add(db_veille)
+
+    # Calculer la distance merchandiser <-> client si GPS disponible
+    if visite.latitude_soumission and visite.longitude_soumission:
+        # Récupérer les coordonnées GPS du client
+        client = db.query(models.Client).filter(models.Client.id == visite.client_id).first()
+        if client and client.latitude and client.longitude:
+            distance, est_sur_site = verifier_presence_sur_site(
+                lat_client=client.latitude,
+                lon_client=client.longitude,
+                lat_merchandiser=visite.latitude_soumission,
+                lon_merchandiser=visite.longitude_soumission
+            )
+            db_visite.distance_client = distance
+            db_visite.est_sur_site = est_sur_site
 
     db.commit()
     db.refresh(db_visite)

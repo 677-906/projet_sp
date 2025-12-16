@@ -676,9 +676,33 @@ def get_dashboard_stats(db: Session = Depends(get_db), current_user: models.User
 
 @app.get("/chef-zone/visites/en-attente", response_model=List[schemas.VisiteInfo], tags=["Chef de Zone - Validation"])
 def read_visites_en_attente(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    """Récupère les visites en attente, triées du plus ancien au plus récent."""
     if not current_user.chef_zone_profile:
         raise HTTPException(status_code=403, detail="Accès réservé aux chefs de zone")
-    return db.query(models.Visite).join(models.Merchandiser).filter(models.Visite.statut_validation == 'soumis', models.Merchandiser.chef_zone_id == current_user.chef_zone_profile.id).all()
+    return db.query(models.Visite).join(models.Merchandiser).filter(
+        models.Visite.statut_validation == 'soumis',
+        models.Merchandiser.chef_zone_id == current_user.chef_zone_profile.id
+    ).order_by(models.Visite.date_visite.asc()).all()
+
+@app.get("/chef-zone/visites/rejetees", response_model=List[schemas.VisiteInfo], tags=["Chef de Zone - Validation"])
+def read_visites_rejetees(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    """Récupère les visites rejetées de l'équipe, triées du plus récent au plus ancien."""
+    if not current_user.chef_zone_profile and not current_user.responsable_profile:
+        raise HTTPException(status_code=403, detail="Accès réservé aux chefs de zone et responsables")
+
+    if current_user.chef_zone_profile:
+        # Chef de zone: voir les visites rejetées de son équipe
+        return db.query(models.Visite).join(models.Merchandiser).filter(
+            models.Visite.statut_validation == 'rejete',
+            models.Merchandiser.chef_zone_id == current_user.chef_zone_profile.id
+        ).order_by(models.Visite.date_visite.desc()).all()
+    else:
+        # Responsable: voir toutes les visites rejetées de ses chefs de zone
+        chef_zone_ids = [cz.id for cz in current_user.responsable_profile.chefs_zone]
+        return db.query(models.Visite).join(models.Merchandiser).filter(
+            models.Visite.statut_validation == 'rejete',
+            models.Merchandiser.chef_zone_id.in_(chef_zone_ids)
+        ).order_by(models.Visite.date_visite.desc()).all()
 
 @app.get("/admin/visites/en-attente/all", tags=["Admin - Rapports"])
 def read_all_visites_en_attente_pour_admin(

@@ -17,6 +17,7 @@ function ResponsableLayout({ onLogout }) {
           {/* Les liens spécifiques au responsable */}
           <NavLink to="/responsable/dashboard">Tableau de Bord</NavLink>
           <NavLink to="/responsable/validations">À Valider</NavLink>
+          <NavLink to="/responsable/rejetes">Rapports Rejetés</NavLink>
           <NavLink to="/responsable/historique">Mon Historique</NavLink>
           <NavLink to="/responsable/chefs-zone">Mes Chefs de Zone</NavLink>
         </ul>

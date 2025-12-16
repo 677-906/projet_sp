@@ -99,6 +99,9 @@ class ClientBase(BaseModel):
     commercial_id: Optional[int] = None
     merchandiser_id: Optional[int] = None
     est_gms: Optional[bool] = False
+    # Coordonnées GPS du client
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
 
 class ClientCreate(ClientBase):
     pass
@@ -115,6 +118,9 @@ class ClientUpdate(BaseModel):
     commercial_id: Optional[int] = None
     merchandiser_id: Optional[int] = None
     est_gms: Optional[bool] = None
+    # Coordonnées GPS du client
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
 
 class CategorieProduitBase(BaseModel):
     nom: str
@@ -200,6 +206,11 @@ class VisiteBase(BaseModel):
     reseau_distribution: Optional[str] = None
     type_client: Optional[str] = None
     client_direct_nom: Optional[str] = None
+
+    # Géolocalisation - Position du merchandiser lors de la soumission
+    latitude_soumission: Optional[float] = None
+    longitude_soumission: Optional[float] = None
+    precision_gps: Optional[float] = None
 
 class VisiteCreate(VisiteBase):
     releves_stock: List[ReleveStockBase] = []
@@ -368,6 +379,13 @@ class Visite(BaseModel):
     reseau_distribution: Optional[str] = None
     type_client: Optional[str] = None
     client_direct_nom: Optional[str] = None
+
+    # Géolocalisation
+    latitude_soumission: Optional[float] = None
+    longitude_soumission: Optional[float] = None
+    precision_gps: Optional[float] = None
+    distance_client: Optional[float] = None
+    est_sur_site: Optional[bool] = None
 
     # Validation
     statut_validation: str

@@ -20,7 +20,9 @@ function ClientManagementPage() {
     commercial_id: '',
     merchandiser_id: '',
     lieu_dit: '',
-    est_gms: false
+    est_gms: false,
+    latitude: '',
+    longitude: ''
   });
 
   // États pour la modification
@@ -100,7 +102,9 @@ function ClientManagementPage() {
         commercial_id: '',
         merchandiser_id: '',
         lieu_dit: '',
-        est_gms: false
+        est_gms: false,
+        latitude: '',
+        longitude: ''
       });
       setSelectedChefZone(null);
       setCommerciaux([]);
@@ -237,6 +241,28 @@ function ClientManagementPage() {
             onChange={e => setNewClient({...newClient, lieu_dit: e.target.value})}
             placeholder="Lieu-dit / Secteur"
           />
+
+          <div className="gps-fields" style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+            <input
+              type="number"
+              step="any"
+              value={newClient.latitude}
+              onChange={e => setNewClient({...newClient, latitude: e.target.value ? parseFloat(e.target.value) : ''})}
+              placeholder="Latitude (ex: 4.0510)"
+              style={{ flex: 1 }}
+            />
+            <input
+              type="number"
+              step="any"
+              value={newClient.longitude}
+              onChange={e => setNewClient({...newClient, longitude: e.target.value ? parseFloat(e.target.value) : ''})}
+              placeholder="Longitude (ex: 9.7680)"
+              style={{ flex: 1 }}
+            />
+          </div>
+          <small style={{ color: '#666', fontSize: '12px' }}>
+            📍 Coordonnées GPS (optionnel) - Trouvez-les sur Google Maps
+          </small>
 
           <div className="checkbox-group">
             <label>
@@ -389,6 +415,28 @@ function ClientManagementPage() {
                 value={editingClient.lieu_dit || ''}
                 onChange={e => setEditingClient({...editingClient, lieu_dit: e.target.value})}
               />
+            </div>
+            <div className="input-group">
+              <label>📍 Coordonnées GPS</label>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <input
+                  type="number"
+                  step="any"
+                  value={editingClient.latitude || ''}
+                  onChange={e => setEditingClient({...editingClient, latitude: e.target.value ? parseFloat(e.target.value) : null})}
+                  placeholder="Latitude (ex: 4.0510)"
+                  style={{ flex: 1 }}
+                />
+                <input
+                  type="number"
+                  step="any"
+                  value={editingClient.longitude || ''}
+                  onChange={e => setEditingClient({...editingClient, longitude: e.target.value ? parseFloat(e.target.value) : null})}
+                  placeholder="Longitude (ex: 9.7680)"
+                  style={{ flex: 1 }}
+                />
+              </div>
+              <small style={{ color: '#666', fontSize: '11px' }}>Trouvez les coordonnées sur Google Maps</small>
             </div>
             <div className="input-group checkbox-group">
               <label>

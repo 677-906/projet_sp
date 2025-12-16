@@ -136,6 +136,51 @@ function VisitDetailPage() {
       </section>
       
       <div className="form-content">
+        {/* Géolocalisation - Vérification présence sur site */}
+        <section className="detail-section geolocation-section">
+          <h2>📍 Vérification Terrain</h2>
+          <div className="geolocation-status">
+            {visite.est_sur_site !== null && visite.est_sur_site !== undefined ? (
+              <div className={`geo-badge ${visite.est_sur_site ? 'on-site' : 'off-site'}`}>
+                {visite.est_sur_site ? '✓ SUR SITE' : '✗ HORS SITE'}
+              </div>
+            ) : (
+              <div className="geo-badge no-gps">
+                Position non vérifiée
+              </div>
+            )}
+          </div>
+          <div className="detail-grid">
+            <div className="detail-item">
+              <strong>Distance :</strong> {visite.distance_client !== null && visite.distance_client !== undefined ? `${visite.distance_client} m` : 'N/A'}
+            </div>
+            <div className="detail-item">
+              <strong>Précision :</strong> {visite.precision_gps ? `± ${Math.round(visite.precision_gps)} m` : 'N/A'}
+            </div>
+          </div>
+
+          {/* --- C'EST LA SEULE PARTIE À AJOUTER/MODIFIER --- */}
+
+          <div className="detail-item">
+            <p><strong>Position de soumission du rapport</strong></p>
+            {/* On vérifie que les coordonnées existent avant d'afficher le lien */}
+            {visite.latitude_soumission && visite.longitude_soumission ? (
+              <a 
+                href={`https://www.google.com/maps/search/?api=1&query=${visite.latitude_soumission},${visite.longitude_soumission}`} 
+                target="_blank" // Ouvre dans un nouvel onglet
+                rel="noopener noreferrer" // Bonne pratique de sécurité
+                className="map-link-inline"
+              >
+                  Voir la position sur Google Maps
+              </a>
+            ) : (
+              <span style={{ color: '#888' }}>Position non enregistrée pour cette visite.</span>
+            )}
+          </div>
+
+
+        </section>
+
         {/* Informations Générales */}
         <section className="detail-section">
           <h2>📋 Informations Générales</h2>

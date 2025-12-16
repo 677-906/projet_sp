@@ -28,7 +28,7 @@ def export_visites_to_excel(db: Session, visites: List[models.Visite]) -> io.Byt
     ws = wb.active
     ws.title = "Visites"
 
-    # Définir les 55 colonnes (ajout de TYPE SURFACE)
+    # Définir les 58 colonnes (ajout de TYPE SURFACE + GPS)
     headers = [
         'ZONE', 'MARCHANDISEUR', 'DATE', 'BASE', 'RESPONSABLE', 'CHEF DE ZONE/SUPERVISEUR',
         'HEURE AR', 'HEURE DE', 'COMMERCIAL', 'CONTACT', 'NOM CLIENT', 'TYPOLOGIE',
@@ -40,7 +40,9 @@ def export_visites_to_excel(db: Session, visites: List[models.Visite]) -> io.Byt
         'ED SP', 'ED BC', 'ED ELIM', 'AUTRES ED',
         'CONCURRENT', 'ACTIVITE', 'MECANISME',
         'RESEAU DE DISTRIBUTION', 'PLANOGRAMME', 'OB PLANOGRAMME',
-        'TYPE CLIENT', 'CLIENT DIRECT', 'ID'
+        'TYPE CLIENT', 'CLIENT DIRECT',
+        'DISTANCE (m)', 'SUR SITE', 'PRECISION GPS (m)',
+        'ID'
     ]
 
     # Écrire les en-têtes
@@ -155,6 +157,11 @@ def export_visites_to_excel(db: Session, visites: List[models.Visite]) -> io.Byt
         for produit_nom in produits_ordre:
             row.append(stocks_par_produit.get(produit_nom, ""))
 
+        # Déterminer le statut GPS
+        sur_site_label = ""
+        if visite.est_sur_site is not None:
+            sur_site_label = "OUI" if visite.est_sur_site else "NON"
+
         # Ajouter les informations finales
         row.extend([
             concurrent_info,  # CONCURRENT
@@ -165,6 +172,9 @@ def export_visites_to_excel(db: Session, visites: List[models.Visite]) -> io.Byt
             visite.observation_planogramme or "",  # OB PLANOGRAMME
             visite.type_client or "",  # TYPE CLIENT
             visite.client_direct_nom or "",  # CLIENT DIRECT
+            visite.distance_client if visite.distance_client is not None else "",  # DISTANCE (m)
+            sur_site_label,  # SUR SITE
+            round(visite.precision_gps) if visite.precision_gps is not None else "",  # PRECISION GPS (m)
             visite.id  # ID
         ])
 

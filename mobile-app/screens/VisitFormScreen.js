@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TextInput, ScrollView, Switch, TouchableOpacity
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
 import axiosInstance from '../api/axiosConfig';
 import LightPicker from '../components/LightPicker';
 
@@ -668,6 +669,29 @@ export default function VisitFormScreen({ route, navigation }) {
     console.log('[DEBUG] Validation passée, soumission en cours...');
     setIsSubmitting(true);
 
+    // ===== CAPTURE GPS (silencieuse - le merchandiser ne doit pas savoir) =====
+    let gpsData = { latitude: null, longitude: null, precision: null };
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+
+      if (status === 'granted') {
+        const location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.BestForNavigation,
+          timeout: 10000
+        });
+
+        gpsData = {
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+          precision: location.coords.accuracy
+        };
+      }
+      // Si permission refusée, on continue silencieusement sans GPS
+    } catch (gpsError) {
+      // Erreur GPS silencieuse - on continue sans coordonnées
+      console.log('[GPS] Non disponible');
+    }
+
     // Capturer l'heure de fin automatiquement au moment de la soumission
     const heureFinAuto = getCurrentTime();
 
@@ -687,6 +711,11 @@ export default function VisitFormScreen({ route, navigation }) {
         planogramme_respecte: planogramme,
         observation_planogramme: !planogramme ? (observationPlanogramme || '') : '',
         observations_generales: observations || '',
+
+        // Géolocalisation - Position du merchandiser lors de la soumission
+        latitude_soumission: gpsData.latitude,
+        longitude_soumission: gpsData.longitude,
+        precision_gps: gpsData.precision,
 
         // Équipements - utiliser '' au lieu de null
         type_outil: equipements.length > 0 ? equipements.map(e => e.type || '').join(';') : '',
@@ -716,9 +745,8 @@ export default function VisitFormScreen({ route, navigation }) {
         veilles_concurrentielles: Object.entries(veillesData)
           .filter(([marque, data]) => {
             const concurrentId = data.concurrent;
-            // S'assurer que concurrent_id est un nombre valide > 0
-            return concurrentId && typeof concurrentId === 'number' && concurrentId > 0 &&
-                   (data.packs || data.activite || data.mecanisme);
+            // S'assurer que concurrent_id est un nombre valide > 0 (suffit pour enregistrer)
+            return concurrentId && typeof concurrentId === 'number' && concurrentId > 0;
           })
           .map(([marque, data]) => ({
             marque: marque,

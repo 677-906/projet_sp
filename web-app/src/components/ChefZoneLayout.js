@@ -17,8 +17,9 @@ function ChefZoneLayout({ onLogout }) {
           {/* Les liens spécifiques au chef de zone */}
           <NavLink to="/chef-zone/dashboard">Tableau de Bord</NavLink>
           <NavLink to="/chef-zone/validations">À Valider</NavLink>
+          <NavLink to="/chef-zone/rejetes">Rapports Rejetés</NavLink>
           <NavLink to="/chef-zone/historique">Mon Historique</NavLink>
-          <NavLink to="/chef-zone/export">Exporter Excel</NavLink>
+          {/*<NavLink to="/chef-zone/export">Exporter Excel</NavLink>*/}
         </ul>
         <button onClick={onLogout} className="sidebar-logout-button">Déconnexion</button>
       </nav>

@@ -2,7 +2,7 @@
 
 import datetime
 from sqlalchemy import (
-    Column, Integer, String, Text, Boolean, TIMESTAMP, ForeignKey, Date
+    Column, Integer, String, Text, Boolean, TIMESTAMP, ForeignKey, Date, Float
 )
 from sqlalchemy.orm import relationship
 from .database import Base
@@ -107,6 +107,10 @@ class Client(Base):
     createur_id = Column(Integer, ForeignKey('users.id'), nullable=True)
     est_gms = Column(Boolean, default=False)  # True = GMS/Entreprise, False = Petite Surface
 
+    # Coordonnées GPS du client (position de référence du point de vente)
+    latitude = Column(Float, nullable=True)  # Ex: 4.0510
+    longitude = Column(Float, nullable=True)  # Ex: 9.7680
+
     # Relations
     createur = relationship("User", back_populates="clients_crees")
     commercial = relationship("Commercial", back_populates="clients")
@@ -180,6 +184,13 @@ class Visite(Base):
     reseau_distribution = Column(String(100), nullable=True)  # TT, MT, STATIONS, etc.
     type_client = Column(String(50), nullable=True)  # DIRECT, INDIRECT
     client_direct_nom = Column(String(200), nullable=True)  # Si type_client = INDIRECT
+
+    # Géolocalisation - Position du merchandiser lors de la soumission
+    latitude_soumission = Column(Float, nullable=True)  # Position GPS du merchandiser
+    longitude_soumission = Column(Float, nullable=True)  # Position GPS du merchandiser
+    precision_gps = Column(Float, nullable=True)  # Précision en mètres
+    distance_client = Column(Float, nullable=True)  # Distance calculée merchandiser <-> client (en mètres)
+    est_sur_site = Column(Boolean, nullable=True)  # True si distance < seuil (300m)
 
     # Validation
     statut_validation = Column(String(50), default='soumis')  # soumis, valide, rejete
