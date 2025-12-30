@@ -206,6 +206,9 @@ class Visite(Base):
     releves_stock = relationship("ReleveStock", back_populates="visite", cascade="all, delete-orphan")
     details_produits = relationship("DetailVisiteProduit", back_populates="visite", cascade="all, delete-orphan")
     veilles_concurrentielles = relationship("VeilleConcurrentielle", back_populates="visite", cascade="all, delete-orphan")
+    photos_rayon = relationship("PhotoRayon", back_populates="visite", cascade="all, delete-orphan")
+    photos_equipement = relationship("PhotoEquipement", back_populates="visite", cascade="all, delete-orphan")
+    photos_incident = relationship("PhotoIncident", back_populates="visite", cascade="all, delete-orphan")
 
 class ReleveStock(Base):
     __tablename__ = 'releves_stock'
@@ -246,6 +249,38 @@ class VeilleConcurrentielle(Base):
 
     visite = relationship("Visite", back_populates="veilles_concurrentielles")
     concurrent = relationship("Concurrent")
+
+class PhotoRayon(Base):
+    __tablename__ = 'photos_rayon'
+    id = Column(Integer, primary_key=True, index=True)
+    visite_id = Column(Integer, ForeignKey('visites.id'))
+    type_rayon = Column(String(50), nullable=False)  # "Rayon Froid" ou "Rayon Ordinaire"
+    moment = Column(String(10), nullable=False)  # "AVANT" ou "APRES"
+    photo_url = Column(String(500), nullable=False)  # Chemin vers le fichier image
+    created_at = Column(TIMESTAMP, default=datetime.datetime.utcnow)
+
+    visite = relationship("Visite", back_populates="photos_rayon")
+
+class PhotoEquipement(Base):
+    __tablename__ = 'photos_equipement'
+    id = Column(Integer, primary_key=True, index=True)
+    visite_id = Column(Integer, ForeignKey('visites.id'))
+    equipment_key = Column(String(200), nullable=False)  # Clé unique de l'équipement
+    photo_url = Column(String(500), nullable=False)  # Chemin vers le fichier image
+    created_at = Column(TIMESTAMP, default=datetime.datetime.utcnow)
+
+    visite = relationship("Visite", back_populates="photos_equipement")
+
+class PhotoIncident(Base):
+    __tablename__ = 'photos_incident'
+    id = Column(Integer, primary_key=True, index=True)
+    visite_id = Column(Integer, ForeignKey('visites.id'))
+    incident_key = Column(String(200), nullable=False)  # Clé unique de l'incident
+    photo_index = Column(Integer, nullable=False)  # Index de la photo pour cet incident
+    photo_url = Column(String(500), nullable=False)  # Chemin vers le fichier image
+    created_at = Column(TIMESTAMP, default=datetime.datetime.utcnow)
+
+    visite = relationship("Visite", back_populates="photos_incident")
 
 # Dans app/models.py
 

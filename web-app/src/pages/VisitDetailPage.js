@@ -159,8 +159,6 @@ function VisitDetailPage() {
             </div>
           </div>
 
-          {/* --- C'EST LA SEULE PARTIE À AJOUTER/MODIFIER --- */}
-
           <div className="detail-item">
             <p><strong>Position de soumission du rapport</strong></p>
             {/* On vérifie que les coordonnées existent avant d'afficher le lien */}
@@ -199,11 +197,57 @@ function VisitDetailPage() {
         {/* Équipements/Outils */}
         <section className="detail-section">
           <h2>🛠️ Équipements/Outils</h2>
-          <div className="detail-grid">
-            <div className="detail-item"><strong>Type Outil :</strong> {visite.type_outil || 'N/A'}</div>
-            <div className="detail-item"><strong>Marque Outil :</strong> {visite.marque_outil || 'N/A'}</div>
-            <div className="detail-item"><strong>État Outil :</strong> {visite.etat_outil || 'N/A'}</div>
-          </div>
+          {(() => {
+            // Parser les équipements depuis les champs concaténés
+            const types = visite.type_outil ? visite.type_outil.split(';').filter(t => t.trim()) : [];
+            const marques = visite.marque_outil ? visite.marque_outil.split(';').filter(m => m.trim()) : [];
+            const etats = visite.etat_outil ? visite.etat_outil.split(';').filter(e => e.trim()) : [];
+            const photosEquipement = visite.photos_equipement || [];
+
+            // Créer un tableau d'équipements
+            const maxLength = Math.max(types.length, marques.length, etats.length);
+
+            if (maxLength === 0) {
+              return <p className="no-data-message">Aucun équipement signalé</p>;
+            }
+
+            return (
+              <div className="veille-grid">
+                {Array.from({ length: maxLength }).map((_, index) => (
+                  <div key={`equipment-${index}`} className="equipment-card">
+                    <div className="equipment-info">
+                      <div className="veille-info">
+                        <span className="veille-label">Type:</span>
+                        <span className="veille-value">{types[index] || 'N/A'}</span>
+                      </div>
+                      <div className="veille-info">
+                        <span className="veille-label">Marque:</span>
+                        <span className="veille-value">{marques[index] || 'N/A'}</span>
+                      </div>
+                      <div className="veille-info">
+                        <span className="veille-label">État:</span>
+                        <span className="veille-value">{etats[index] || 'N/A'}</span>
+                      </div>
+                    </div>
+                    {photosEquipement[index] && (
+                      <div className="equipment-photo">
+                        <a href={`http://127.0.0.1:8000${photosEquipement[index].photo_url}`} target="_blank" rel="noopener noreferrer">
+                          <img
+                            src={`http://127.0.0.1:8000${photosEquipement[index].photo_url}`}
+                            alt={`Équipement ${index + 1}`}
+                            className="equipment-photo-img"
+                            onError={(e) => {
+                              e.target.src = 'https://via.placeholder.com/150x150?text=Image+non+disponible';
+                            }}
+                          />
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
         </section>
 
         {/* Conformité */}
@@ -238,26 +282,60 @@ function VisitDetailPage() {
           <h2>⚠️ Incidents</h2>
           {(() => {
             const incidents = visite.details_produits?.filter(d => d.type_detail === 'incident') || [];
+            const photosIncident = visite.photos_incident || [];
+
             if (incidents.length > 0) {
               return (
                 <div className="veille-grid">
-                  {incidents.map((incident, index) => (
-                    <div key={`incident-${incident.id || index}`} className="veille-card">
-                      <div className="veille-header">
-                        <strong>{incident.produit?.article || incident.produit?.nom_produit || 'Article inconnu'}</strong>
-                      </div>
-                      <div className="veille-body">
-                        <div className="veille-info">
-                          <span className="veille-label">Type:</span>
-                          <span className="veille-value">{incident.observation || visite.type_incidents || 'N/A'}</span>
+                  {incidents.map((incident, index) => {
+                    // Trouver toutes les photos pour cet incident (par index)
+                    const incidentPhotos = photosIncident.filter(photo => photo.photo_index === index);
+
+                    return (
+                      <div key={`incident-${incident.id || index}`} className="incident-card">
+                        <div className="incident-info">
+                          <div className="veille-header">
+                            <strong>{incident.produit?.article || incident.produit?.nom_produit || 'Article inconnu'}</strong>
+                          </div>
+                          <div className="veille-body">
+                            <div className="veille-info">
+                              <span className="veille-label">Type:</span>
+                              <span className="veille-value">{incident.observation || visite.type_incidents || 'N/A'}</span>
+                            </div>
+                            <div className="veille-info">
+                              <span className="veille-label">Quantité:</span>
+                              <span className="veille-value">{incident.quantite || 0}</span>
+                            </div>
+                          </div>
                         </div>
-                        <div className="veille-info">
-                          <span className="veille-label">Quantité:</span>
-                          <span className="veille-value">{incident.quantite || 0}</span>
-                        </div>
+                        {incidentPhotos.length > 0 && (
+                          <div className="incident-photos">
+                            <p className="incident-photos-label">Photos ({incidentPhotos.length}):</p>
+                            <div className="incident-photos-grid">
+                              {incidentPhotos.map((photo, photoIndex) => (
+                                <a
+                                  key={photo.id}
+                                  href={`http://127.0.0.1:8000${photo.photo_url}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="incident-photo-link"
+                                >
+                                  <img
+                                    src={`http://127.0.0.1:8000${photo.photo_url}`}
+                                    alt={`Incident ${index + 1} - Photo ${photoIndex + 1}`}
+                                    className="incident-photo-img"
+                                    onError={(e) => {
+                                      e.target.src = 'https://via.placeholder.com/100x100?text=Image+non+disponible';
+                                    }}
+                                  />
+                                </a>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               );
             } else if (visite.type_incidents || visite.articles_incidents) {
@@ -326,6 +404,50 @@ function VisitDetailPage() {
             </div>
           </section>
         )}
+
+        {/* Photos Rayon */}
+        {visite.photos_rayon && visite.photos_rayon.length > 0 && (
+          <section className="detail-section">
+            <h2>📸 Photos Rayon (Achalandage)</h2>
+            <div className="photos-rayon-grid">
+              {['Rayon Froid', 'Rayon Ordinaire'].map(typeRayon => {
+                const photosType = visite.photos_rayon.filter(p => p.type_rayon === typeRayon);
+                if (photosType.length === 0) return null;
+
+                return (
+                  <div key={typeRayon} className="photos-rayon-type">
+                    <h3>{typeRayon === 'Rayon Froid' ? '❄️ Rayon Froid' : '🌡️ Rayon Ordinaire'}</h3>
+                    <div className="photos-moment-row">
+                      {['AVANT', 'APRES'].map(moment => {
+                        const photo = photosType.find(p => p.moment === moment);
+                        return (
+                          <div key={moment} className="photo-moment-box">
+                            <p className="photo-moment-label">{moment}</p>
+                            {photo ? (
+                              <a href={`http://127.0.0.1:8000${photo.photo_url}`} target="_blank" rel="noopener noreferrer">
+                                <img
+                                  src={`http://127.0.0.1:8000${photo.photo_url}`}
+                                  alt={`${typeRayon} ${moment}`}
+                                  className="photo-preview"
+                                  onError={(e) => {
+                                    e.target.src = 'https://via.placeholder.com/300x200?text=Image+non+disponible';
+                                  }}
+                                />
+                              </a>
+                            ) : (
+                              <div className="photo-placeholder">Aucune photo</div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
 
         <section className="actions-section">
           <button onClick={() => handleAction('valider')} className="action-button approve-button">Valider le Rapport</button>

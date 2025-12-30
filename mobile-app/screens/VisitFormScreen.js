@@ -1,11 +1,15 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, TextInput, ScrollView, Switch, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TextInput, ScrollView, Switch, TouchableOpacity, Alert, ActivityIndicator, Image } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
-import axiosInstance from '../api/axiosConfig';
+import axiosInstance, { uploadFile } from '../api/axiosConfig';
 import LightPicker from '../components/LightPicker';
+import * as ImagePicker from 'expo-image-picker';
+
+
+
 
 // Structure des groupes de marques pour la veille concurrentielle
 const MARQUES_VEILLE_STRUCTURE = [
@@ -137,6 +141,16 @@ export default function VisitFormScreen({ route, navigation }) {
   const isEditMode = !!visitId;
   const insets = useSafeAreaInsets();
 
+
+  // ===== STEP MANAGEMENT =====
+    const [currentStep, setCurrentStep] = useState(1);
+    const totalSteps = 4; // Mise à jour du nombre total d'étapes
+    const stepLabels = ['Infos', 'Équipements', 'Stocks & Veille', 'Photos']; // Mise à jour des labels
+
+
+  const [photoAvant, setPhotoAvant] = useState(null);
+  const [photoApres, setPhotoApres] = useState(null);
+
   // ===== CLIENT INFO =====
   const [clientId, setClientId] = useState(clientIdParam);
   const [clientName, setClientName] = useState(clientNameParam);
@@ -170,6 +184,45 @@ export default function VisitFormScreen({ route, navigation }) {
   const [typeClient, setTypeClient] = useState('DIRECT');
   const [clientDirectNom, setClientDirectNom] = useState(clientNameParam || '');
   const [observations, setObservations] = useState('');
+
+  // ===== STEP 4: PHOTOS RAYON =====
+  // Chaque type de rayon contient un tableau de rayons individuels
+  const [photosRayon, setPhotosRayon] = useState({
+    'Rayon Froid': [{ avant: null, apres: null }],
+    'Rayon Ordinaire': [{ avant: null, apres: null }]
+  });
+
+
+
+  // --- NOUVEAU COMPOSANT POUR L'ÉTAPE 4: PHOTOS ---
+const Step4Photos = ({ photoAvant, photoApres, onTakePhoto }) => (
+  <ScrollView contentContainerStyle={styles.stepContentContainer}>
+    <Text style={styles.sectionTitle}>📸 Photos du Rayon</Text>
+    <View style={styles.photoContainer}>
+      <TouchableOpacity onPress={() => onTakePhoto('avant')} style={styles.photoBox}>
+        {!photoAvant ? (
+          <>
+            <Ionicons name="camera-outline" size={40} color="#007bff" />
+            <Text style={styles.photoBoxText}>Prendre photo AVANT</Text>
+          </>
+        ) : (
+          <Image source={{ uri: photoAvant.uri }} style={styles.photoPreview} />
+        )}
+      </TouchableOpacity>
+      <TouchableOpacity onPress={() => onTakePhoto('apres')} style={styles.photoBox}>
+        {!photoApres ? (
+          <>
+            <Ionicons name="camera-reverse-outline" size={40} color="#28a745" />
+            <Text style={styles.photoBoxText}>Prendre photo APRÈS</Text>
+          </>
+        ) : (
+          <Image source={{ uri: photoApres.uri }} style={styles.photoPreview} />
+        )}
+      </TouchableOpacity>
+    </View>
+  </ScrollView>
+);
+// ----------------------------------------------------
 
   // ===== PICKER DATA =====
   const [chefsZone, setChefsZone] = useState([]);
@@ -214,6 +267,22 @@ export default function VisitFormScreen({ route, navigation }) {
       console.error('[AUTO-SAVE] Erreur de sauvegarde:', error);
     }
   };
+
+
+  const takePhoto = async (type) => {
+    const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permissionResult.granted) {
+      alert("L'accès à la caméra est requis !");
+      return;
+    }
+    let result = await ImagePicker.launchCameraAsync({ quality: 0.5 });
+    if (!result.canceled) {
+      if (type === 'avant') setPhotoAvant(result.assets[0]);
+      else setPhotoApres(result.assets[0]);
+    }
+  };
+
+
 
   // Fonction pour charger les données sauvegardées
   const loadSavedFormData = async () => {
@@ -463,7 +532,8 @@ export default function VisitFormScreen({ route, navigation }) {
                   key: `equip_${Date.now()}_${Math.random()}_${i}`,
                   type: types[i] || null,
                   marque: marques[i] || null,
-                  etat: etats[i] || null
+                  etat: etats[i] || null,
+                  photo: null
                 });
               }
               setEquipements(equipementsData);
@@ -512,7 +582,8 @@ export default function VisitFormScreen({ route, navigation }) {
                     type: detail.observation || '',
                     // IMPORTANT: Garder le type number pour correspondre au picker
                     article: Number(produitId),
-                    quantite: detail.quantite?.toString() || ''
+                    quantite: detail.quantite?.toString() || '',
+                    photos: []
                   });
                 }
               });
@@ -654,6 +725,125 @@ export default function VisitFormScreen({ route, navigation }) {
     });
   }, [veillesData]);
 
+  // ===== PHOTO RAYON HANDLERS =====
+  const handleTakePhoto = async (typeRayon, rayonIndex, moment) => {
+    try {
+      // Demander la permission de la caméra
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission refusée', 'Nous avons besoin de l\'accès à la caméra pour prendre des photos');
+        return;
+      }
+
+      // Ouvrir la caméra directement
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        quality: 0.7,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const photoUri = result.assets[0].uri;
+
+        // Mettre à jour la photo du rayon spécifique
+        setPhotosRayon(prev => {
+          const newRayons = [...prev[typeRayon]];
+          newRayons[rayonIndex] = {
+            ...newRayons[rayonIndex],
+            [moment.toLowerCase()]: photoUri
+          };
+          return {
+            ...prev,
+            [typeRayon]: newRayons
+          };
+        });
+
+        console.log(`[PHOTO] ${typeRayon} Rayon ${rayonIndex + 1} ${moment}:`, photoUri);
+      }
+    } catch (error) {
+      console.error('[ERROR] Prise de photo:', error);
+      Alert.alert('Erreur', 'Impossible de prendre la photo');
+    }
+  };
+
+  const handleAddRayon = (typeRayon) => {
+    setPhotosRayon(prev => ({
+      ...prev,
+      [typeRayon]: [...prev[typeRayon], { avant: null, apres: null }]
+    }));
+  };
+
+  const handleRemoveRayon = (typeRayon, rayonIndex) => {
+    setPhotosRayon(prev => ({
+      ...prev,
+      [typeRayon]: prev[typeRayon].filter((_, index) => index !== rayonIndex)
+    }));
+  };
+
+  // ===== EQUIPMENT PHOTO HANDLER =====
+  const handleTakeEquipmentPhoto = async (equipmentKey) => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission refusée', 'Nous avons besoin de l\'accès à la caméra pour prendre des photos');
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        quality: 0.7,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const photoUri = result.assets[0].uri;
+        setEquipements(prev => prev.map(e =>
+          e.key === equipmentKey ? { ...e, photo: photoUri } : e
+        ));
+        console.log(`[PHOTO] Equipment ${equipmentKey}:`, photoUri);
+      }
+    } catch (error) {
+      console.error('[ERROR] Prise de photo équipement:', error);
+      Alert.alert('Erreur', 'Impossible de prendre la photo');
+    }
+  };
+
+  // ===== INCIDENT PHOTO HANDLERS =====
+  const handleTakeIncidentPhoto = async (incidentKey) => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission refusée', 'Nous avons besoin de l\'accès à la caméra pour prendre des photos');
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        quality: 0.7,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const photoUri = result.assets[0].uri;
+        setIncidents(prev => prev.map(i =>
+          i.key === incidentKey ? { ...i, photos: [...(i.photos || []), photoUri] } : i
+        ));
+        console.log(`[PHOTO] Incident ${incidentKey}:`, photoUri);
+      }
+    } catch (error) {
+      console.error('[ERROR] Prise de photo incident:', error);
+      Alert.alert('Erreur', 'Impossible de prendre la photo');
+    }
+  };
+
+  const handleRemoveIncidentPhoto = (incidentKey, photoIndex) => {
+    setIncidents(prev => prev.map(i =>
+      i.key === incidentKey
+        ? { ...i, photos: i.photos.filter((_, index) => index !== photoIndex) }
+        : i
+    ));
+  };
+
   // ===== SUBMIT HANDLER =====
   const handleSubmit = async () => {
     console.log('[DEBUG] handleSubmit appelé');
@@ -768,21 +958,117 @@ export default function VisitFormScreen({ route, navigation }) {
       console.log('[DEBUG] ruptures:', payload.ruptures);
       console.log('[DEBUG] Payload complet:', JSON.stringify(payload, null, 2));
 
+      let createdVisiteId = visitId;
+
       if (isEditMode) {
         console.log('[DEBUG] Mode édition - PUT /visites/' + visitId);
         await axiosInstance.put(`/visites/${visitId}`, payload);
-        await clearSavedFormData(); // Effacer la sauvegarde après succès
-        Alert.alert('Succès', 'Visite modifiée avec succès', [
-          { text: 'OK', onPress: () => navigation.goBack() }
-        ]);
       } else {
         console.log('[DEBUG] Mode création - POST /visites/');
-        await axiosInstance.post('/visites/', payload);
-        await clearSavedFormData(); // Effacer la sauvegarde après succès
-        Alert.alert('Succès', 'Visite créée avec succès', [
-          { text: 'OK', onPress: () => navigation.goBack() }
-        ]);
+        const response = await axiosInstance.post('/visites/', payload);
+        createdVisiteId = response.data.id;
+        console.log('[DEBUG] Visite créée avec ID:', createdVisiteId);
       }
+
+      // Upload des photos si présentes
+      console.log('[DEBUG] Upload des photos...');
+      const photosToUpload = [];
+
+      for (const typeRayon of ['Rayon Froid', 'Rayon Ordinaire']) {
+        const rayons = photosRayon[typeRayon];
+        // Parcourir tous les rayons
+        rayons.forEach((rayon, index) => {
+          if (rayon.avant) {
+            photosToUpload.push({ typeRayon, moment: 'AVANT', photoUri: rayon.avant });
+          }
+          if (rayon.apres) {
+            photosToUpload.push({ typeRayon, moment: 'APRES', photoUri: rayon.apres });
+          }
+        });
+      }
+
+      if (photosToUpload.length > 0) {
+        console.log(`[DEBUG] ${photosToUpload.length} photos à uploader`);
+
+        for (const photo of photosToUpload) {
+          try {
+            // Extraire le type de fichier
+            const uriParts = photo.photoUri.split('.');
+            const fileType = uriParts[uriParts.length - 1];
+
+            const uploadUrl = `/visites/${createdVisiteId}/upload-photo?type_rayon=${encodeURIComponent(photo.typeRayon)}&moment=${photo.moment}`;
+            console.log(`[DEBUG] Upload photo: ${photo.typeRayon} ${photo.moment}`);
+            console.log(`[DEBUG] Upload URL: ${uploadUrl}`);
+            console.log(`[DEBUG] Photo URI: ${photo.photoUri}`);
+
+            // Utiliser uploadFile avec fetch au lieu d'axios
+            await uploadFile(uploadUrl, photo.photoUri, `photo.${fileType}`, `image/${fileType}`);
+
+            console.log(`[DEBUG] Photo uploadée: ${photo.typeRayon} ${photo.moment}`);
+          } catch (uploadError) {
+            console.error(`[ERROR] Upload photo ${photo.typeRayon} ${photo.moment}:`, uploadError);
+            console.error(`[ERROR] Error message:`, uploadError.message);
+            // Continuer même si une photo échoue
+          }
+        }
+      }
+
+      // Upload des photos d'équipements
+      console.log('[DEBUG] Upload des photos d\'équipements...');
+      for (const equipment of equipements) {
+        if (equipment.photo) {
+          try {
+            const uriParts = equipment.photo.split('.');
+            const fileType = uriParts[uriParts.length - 1];
+
+            const uploadUrl = `/visites/${createdVisiteId}/upload-photo?photo_type=equipment&equipment_key=${encodeURIComponent(equipment.key)}`;
+            console.log(`[DEBUG] Upload photo équipement: ${equipment.type || 'N/A'}`);
+            console.log(`[DEBUG] Upload URL: ${uploadUrl}`);
+            console.log(`[DEBUG] Photo URI: ${equipment.photo}`);
+
+            // Utiliser uploadFile avec fetch au lieu d'axios
+            await uploadFile(uploadUrl, equipment.photo, `equipment_photo.${fileType}`, `image/${fileType}`);
+
+            console.log(`[DEBUG] Photo équipement uploadée`);
+          } catch (uploadError) {
+            console.error(`[ERROR] Upload photo équipement:`, uploadError);
+            console.error(`[ERROR] Error message:`, uploadError.message);
+          }
+        }
+      }
+
+      // Upload des photos d'incidents
+      console.log('[DEBUG] Upload des photos d\'incidents...');
+      for (const incident of incidents) {
+        if (incident.photos && incident.photos.length > 0) {
+          for (let photoIndex = 0; photoIndex < incident.photos.length; photoIndex++) {
+            const photoUri = incident.photos[photoIndex];
+            try {
+              const uriParts = photoUri.split('.');
+              const fileType = uriParts[uriParts.length - 1];
+
+              const uploadUrl = `/visites/${createdVisiteId}/upload-photo?photo_type=incident&incident_key=${encodeURIComponent(incident.key)}&photo_index=${photoIndex}`;
+              console.log(`[DEBUG] Upload photo incident ${photoIndex + 1}: ${incident.type || 'N/A'}`);
+              console.log(`[DEBUG] Upload URL: ${uploadUrl}`);
+              console.log(`[DEBUG] Photo URI: ${photoUri}`);
+
+              // Utiliser uploadFile avec fetch au lieu d'axios
+              await uploadFile(uploadUrl, photoUri, `incident_photo_${photoIndex}.${fileType}`, `image/${fileType}`);
+
+              console.log(`[DEBUG] Photo incident ${photoIndex + 1} uploadée`);
+            } catch (uploadError) {
+              console.error(`[ERROR] Upload photo incident ${photoIndex + 1}:`, uploadError);
+              console.error(`[ERROR] Error message:`, uploadError.message);
+            }
+          }
+        }
+      }
+
+      await clearSavedFormData(); // Effacer la sauvegarde après succès
+
+      Alert.alert('Succès', isEditMode ? 'Visite modifiée avec succès' : 'Visite créée avec succès', [
+        { text: 'OK', onPress: () => navigation.goBack() }
+      ]);
     } catch (error) {
       console.error('[ERROR] Soumission:', error);
       console.error('[ERROR] Response data:', JSON.stringify(error.response?.data, null, 2));
@@ -919,7 +1205,148 @@ export default function VisitFormScreen({ route, navigation }) {
           </View>
         </View>
 
-        {/* ========== SECTION 2: ÉQUIPEMENTS ========== */}
+        {/* ========== SECTION 2: PHOTOS RAYON ========== */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>📸 Photos Rayon (Achalandage)</Text>
+
+          {/* Rayon Froid */}
+          <View style={styles.photoRayonContainer}>
+            <Text style={styles.photoRayonTitle}>❄️ Rayon Froid</Text>
+
+            {photosRayon['Rayon Froid'].map((rayon, rayonIndex) => (
+              <View key={rayonIndex} style={styles.rayonRow}>
+                <View style={styles.rayonHeader}>
+                  <Text style={styles.rayonNumber}>Rayon {rayonIndex + 1}</Text>
+                  {photosRayon['Rayon Froid'].length > 1 && (
+                    <TouchableOpacity
+                      onPress={() => handleRemoveRayon('Rayon Froid', rayonIndex)}
+                      style={styles.removeRayonButton}
+                    >
+                      <Ionicons name="trash-outline" size={18} color="#dc3545" />
+                      <Text style={styles.removeRayonText}>Supprimer</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                <View style={styles.photosPairRow}>
+                  {/* Photo AVANT */}
+                  <View style={styles.photoColumn}>
+                    <Text style={styles.photoLabel}>AVANT</Text>
+                    {rayon.avant ? (
+                      <View style={styles.photoPreviewContainer}>
+                        <Image source={{ uri: rayon.avant }} style={styles.photoPreview} />
+                      </View>
+                    ) : (
+                      <TouchableOpacity
+                        style={styles.takePhotoButton}
+                        onPress={() => handleTakePhoto('Rayon Froid', rayonIndex, 'AVANT')}
+                      >
+                        <Ionicons name="camera-outline" size={30} color="#007bff" />
+                        <Text style={styles.takePhotoText}>Prendre</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  {/* Photo APRÈS */}
+                  <View style={styles.photoColumn}>
+                    <Text style={styles.photoLabel}>APRÈS</Text>
+                    {rayon.apres ? (
+                      <View style={styles.photoPreviewContainer}>
+                        <Image source={{ uri: rayon.apres }} style={styles.photoPreview} />
+                      </View>
+                    ) : (
+                      <TouchableOpacity
+                        style={styles.takePhotoButton}
+                        onPress={() => handleTakePhoto('Rayon Froid', rayonIndex, 'APRES')}
+                      >
+                        <Ionicons name="camera-outline" size={30} color="#007bff" />
+                        <Text style={styles.takePhotoText}>Prendre</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </View>
+              </View>
+            ))}
+
+            <TouchableOpacity
+              style={styles.addRayonButton}
+              onPress={() => handleAddRayon('Rayon Froid')}
+            >
+              <Ionicons name="add-circle-outline" size={24} color="#28a745" />
+              <Text style={styles.addRayonText}>Ajouter un rayon</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Rayon Ordinaire */}
+          <View style={styles.photoRayonContainer}>
+            <Text style={styles.photoRayonTitle}>🌡️ Rayon ordinaire</Text>
+
+            {photosRayon['Rayon Ordinaire'].map((rayon, rayonIndex) => (
+              <View key={rayonIndex} style={styles.rayonRow}>
+                <View style={styles.rayonHeader}>
+                  <Text style={styles.rayonNumber}>Rayon {rayonIndex + 1}</Text>
+                  {photosRayon['Rayon Ordinaire'].length > 1 && (
+                    <TouchableOpacity
+                      onPress={() => handleRemoveRayon('Rayon Ordinaire', rayonIndex)}
+                      style={styles.removeRayonButton}
+                    >
+                      <Ionicons name="trash-outline" size={18} color="#dc3545" />
+                      <Text style={styles.removeRayonText}>Supprimer</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                <View style={styles.photosPairRow}>
+                  {/* Photo AVANT */}
+                  <View style={styles.photoColumn}>
+                    <Text style={styles.photoLabel}>AVANT</Text>
+                    {rayon.avant ? (
+                      <View style={styles.photoPreviewContainer}>
+                        <Image source={{ uri: rayon.avant }} style={styles.photoPreview} />
+                      </View>
+                    ) : (
+                      <TouchableOpacity
+                        style={styles.takePhotoButton}
+                        onPress={() => handleTakePhoto('Rayon Ordinaire', rayonIndex, 'AVANT')}
+                      >
+                        <Ionicons name="camera-outline" size={30} color="#007bff" />
+                        <Text style={styles.takePhotoText}>Prendre</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  {/* Photo APRÈS */}
+                  <View style={styles.photoColumn}>
+                    <Text style={styles.photoLabel}>APRÈS</Text>
+                    {rayon.apres ? (
+                      <View style={styles.photoPreviewContainer}>
+                        <Image source={{ uri: rayon.apres }} style={styles.photoPreview} />
+                      </View>
+                    ) : (
+                      <TouchableOpacity
+                        style={styles.takePhotoButton}
+                        onPress={() => handleTakePhoto('Rayon Ordinaire', rayonIndex, 'APRES')}
+                      >
+                        <Ionicons name="camera-outline" size={30} color="#007bff" />
+                        <Text style={styles.takePhotoText}>Prendre</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </View>
+              </View>
+            ))}
+
+            <TouchableOpacity
+              style={styles.addRayonButton}
+              onPress={() => handleAddRayon('Rayon Ordinaire')}
+            >
+              <Ionicons name="add-circle-outline" size={24} color="#28a745" />
+              <Text style={styles.addRayonText}>Ajouter un rayon</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* ========== SECTION 3: ÉQUIPEMENTS ========== */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>🛠️ Équipements</Text>
           {equipements.length > 0 && (
@@ -933,6 +1360,7 @@ export default function VisitFormScreen({ route, navigation }) {
                   <Text style={[styles.tableHeaderCell, { width: 180 }]}>TYPE</Text>
                   <Text style={[styles.tableHeaderCell, { width: 180 }]}>MARQUE</Text>
                   <Text style={[styles.tableHeaderCell, { width: 150 }]}>ÉTAT</Text>
+                  <Text style={[styles.tableHeaderCell, { width: 140 }]}>PHOTO</Text>
                   <Text style={[styles.tableHeaderCell, { width: 50 }]}></Text>
                 </View>
 
@@ -962,6 +1390,20 @@ export default function VisitFormScreen({ route, navigation }) {
                         value={item.etat}
                       />
                     </View>
+                    <View style={{ width: 140, justifyContent: 'center', alignItems: 'center' }}>
+                      {item.photo ? (
+                        <View style={styles.equipmentPhotoContainer}>
+                          <Image source={{ uri: item.photo }} style={styles.equipmentPhotoPreview} />
+                        </View>
+                      ) : (
+                        <TouchableOpacity
+                          style={styles.equipmentCameraButton}
+                          onPress={() => handleTakeEquipmentPhoto(item.key)}
+                        >
+                          <Ionicons name="camera-outline" size={24} color="#007bff" />
+                        </TouchableOpacity>
+                      )}
+                    </View>
                     <TouchableOpacity
                       onPress={() => setEquipements(prev => prev.filter(e => e.key !== item.key))}
                       style={{ width: 50, justifyContent: 'center', alignItems: 'center' }}
@@ -977,15 +1419,14 @@ export default function VisitFormScreen({ route, navigation }) {
             style={styles.addButton}
             onPress={() => {
               equipKeyCounter.current += 1;
-              const newItem = { key: `equip_${equipKeyCounter.current}_${Date.now()}_${Math.random()}`, type: null, marque: null, etat: null };
+              const newItem = { key: `equip_${equipKeyCounter.current}_${Date.now()}_${Math.random()}`, type: null, marque: null, etat: null, photo: null };
               setEquipements([...equipements, newItem]);
             }}
           >
             <Text style={styles.addButtonText}>+ Ajouter un Équipement</Text>
           </TouchableOpacity>
         </View>
-
-        {/* ========== SECTION 3: RÉSUMÉ DE LA VISITE ========== */}
+        {/* ========== SECTION 4: RÉSUMÉ DE LA VISITE ========== */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>✅ Résumé de la Visite</Text>
           <View style={styles.switchRow}>
@@ -1010,7 +1451,7 @@ export default function VisitFormScreen({ route, navigation }) {
           )}
         </View>
 
-        {/* ========== SECTION 4: RUPTURES ========== */}
+        {/* ========== SECTION 5: RUPTURES ========== */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>⚠️ Ruptures</Text>
           {ruptures.length > 0 && (
@@ -1058,7 +1499,7 @@ export default function VisitFormScreen({ route, navigation }) {
           </TouchableOpacity>
         </View>
 
-        {/* ========== SECTION 5: INCIDENTS ========== */}
+        {/* ========== SECTION 6: INCIDENTS ========== */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>🚨 Incidents</Text>
           {incidents.length > 0 && (
@@ -1072,6 +1513,7 @@ export default function VisitFormScreen({ route, navigation }) {
                   <Text style={[styles.tableHeaderCell, { width: 200 }]}>TYPE</Text>
                   <Text style={[styles.tableHeaderCell, { width: 200 }]}>ARTICLE</Text>
                   <Text style={[styles.tableHeaderCell, { width: 100 }]}>QUANTITÉ</Text>
+                  <Text style={[styles.tableHeaderCell, { width: 200 }]}>PHOTOS</Text>
                   <Text style={[styles.tableHeaderCell, { width: 50 }]}></Text>
                 </View>
 
@@ -1101,6 +1543,27 @@ export default function VisitFormScreen({ route, navigation }) {
                       placeholder="Qté"
                       scrollEnabled={false}
                     />
+                    <View style={{ width: 200, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 5 }}>
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                        {(item.photos || []).map((photoUri, photoIndex) => (
+                          <View key={photoIndex} style={styles.incidentPhotoThumb}>
+                            <Image source={{ uri: photoUri }} style={styles.incidentPhotoThumbImage} />
+                            <TouchableOpacity
+                              style={styles.incidentPhotoRemove}
+                              onPress={() => handleRemoveIncidentPhoto(item.key, photoIndex)}
+                            >
+                              <Ionicons name="close-circle" size={16} color="#dc3545" />
+                            </TouchableOpacity>
+                          </View>
+                        ))}
+                      </ScrollView>
+                      <TouchableOpacity
+                        style={styles.incidentCameraButton}
+                        onPress={() => handleTakeIncidentPhoto(item.key)}
+                      >
+                        <Ionicons name="camera-outline" size={20} color="#007bff" />
+                      </TouchableOpacity>
+                    </View>
                     <TouchableOpacity
                       onPress={() => setIncidents(prev => prev.filter(i => i.key !== item.key))}
                       style={{ width: 50, justifyContent: 'center', alignItems: 'center' }}
@@ -1116,7 +1579,7 @@ export default function VisitFormScreen({ route, navigation }) {
             style={styles.addButton}
             onPress={() => {
               incidentKeyCounter.current += 1;
-              const newItem = { key: `incident_${incidentKeyCounter.current}_${Date.now()}_${Math.random()}`, type: null, article: null, quantite: '' };
+              const newItem = { key: `incident_${incidentKeyCounter.current}_${Date.now()}_${Math.random()}`, type: null, article: null, quantite: '', photos: [] };
               setIncidents([...incidents, newItem]);
             }}
           >
@@ -1124,7 +1587,7 @@ export default function VisitFormScreen({ route, navigation }) {
           </TouchableOpacity>
         </View>
 
-        {/* ========== SECTION 6: VEILLE CONCURRENTIELLE ========== */}
+        {/* ========== SECTION 7: VEILLE CONCURRENTIELLE ========== */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>👁️ Veille Concurrentielle</Text>
 
@@ -1141,7 +1604,7 @@ export default function VisitFormScreen({ route, navigation }) {
           ))}
         </View>
 
-        {/* ========== SECTION 7: INFORMATIONS COMMERCIALES ========== */}
+        {/* ========== SECTION 8: INFORMATIONS COMMERCIALES ========== */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>💼 Informations Commerciales</Text>
 
@@ -1171,7 +1634,7 @@ export default function VisitFormScreen({ route, navigation }) {
           )}
         </View>
 
-        {/* ========== SECTION 8: OBSERVATIONS GÉNÉRALES ========== */}
+        {/* ========== SECTION 9: OBSERVATIONS GÉNÉRALES ========== */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>📝 Observations Générales</Text>
           <View style={styles.fieldContainer}>
@@ -1432,6 +1895,208 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  photoRayonContainer: {
+    marginTop: 15,
+    padding: 12,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#dee2e6',
+  },
+  photoRayonTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#495057',
+    marginBottom: 10,
+  },
+  photoMomentSection: {
+    marginBottom: 15,
+  },
+  photoMomentLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6c757d',
+    marginBottom: 8,
+  },
+  photosScrollView: {
+    flexDirection: 'row',
+  },
+  addPhotoButton: {
+    width: 120,
+    height: 150,
+    backgroundColor: '#fff',
+    borderWidth: 2,
+    borderColor: '#007bff',
+    borderStyle: 'dashed',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  addPhotoText: {
+    marginTop: 8,
+    fontSize: 12,
+    color: '#007bff',
+    fontWeight: '600',
+  },
+  photoPreviewContainer: {
+    width: 120,
+    height: 150,
+    position: 'relative',
+    marginRight: 10,
+  },
+  photoPreview: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 8,
+    resizeMode: 'cover',
+  },
+  removePhotoButton: {
+    position: 'absolute',
+    top: 5,
+    right: 5,
+    backgroundColor: 'rgba(220, 53, 69, 0.9)',
+    width: 35,
+    height: 35,
+    borderRadius: 17.5,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  rayonRow: {
+    marginBottom: 15,
+    padding: 12,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  rayonHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  rayonNumber: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#495057',
+  },
+  removeRayonButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 5,
+  },
+  removeRayonText: {
+    fontSize: 13,
+    color: '#dc3545',
+    marginLeft: 5,
+  },
+  photosPairRow: {
+    flexDirection: 'row',
+    gap: 10,
+    justifyContent: 'space-between',
+  },
+  photoColumn: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  photoLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#6c757d',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  takePhotoButton: {
+    width: '100%',
+    height: 150,
+    backgroundColor: '#fff',
+    borderWidth: 2,
+    borderColor: '#007bff',
+    borderStyle: 'dashed',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  takePhotoText: {
+    marginTop: 8,
+    fontSize: 12,
+    color: '#007bff',
+    fontWeight: '600',
+  },
+  addRayonButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    backgroundColor: '#e8f5e9',
+    borderRadius: 8,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: '#28a745',
+  },
+  addRayonText: {
+    fontSize: 14,
+    color: '#28a745',
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  // Equipment photo styles
+  equipmentPhotoContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  equipmentPhotoPreview: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  equipmentCameraButton: {
+    width: 100,
+    height: 100,
+    backgroundColor: '#f0f8ff',
+    borderWidth: 2,
+    borderColor: '#007bff',
+    borderStyle: 'dashed',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  // Incident photo styles
+  incidentPhotoThumb: {
+    width: 60,
+    height: 60,
+    marginRight: 5,
+    position: 'relative',
+    borderRadius: 6,
+    overflow: 'hidden',
+  },
+  incidentPhotoThumbImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  incidentPhotoRemove: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+  },
+  incidentCameraButton: {
+    width: 60,
+    height: 60,
+    backgroundColor: '#f0f8ff',
+    borderWidth: 2,
+    borderColor: '#007bff',
+    borderStyle: 'dashed',
+    borderRadius: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 5,
   },
 });
 

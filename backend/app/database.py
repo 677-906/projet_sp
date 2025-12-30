@@ -2,6 +2,18 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
+
+#POSTGRES_USER = "spuser"
+#POSTGRES_PASSWORD = "usersp"
+#POSTGRES_SERVER = "84.200.73.61"  # ou l'adresse IP de votre serveur
+#POSTGRES_PORT = "5432"
+#POSTGRES_DB = "spdb" # Le nom de la base de données que vous avez créée
+
+#SQLALCHEMY_DATABASE_URL = f"postgresql://spuser:usersp@84.200.73.61:5432/spdb"
+
+
+
+
 POSTGRES_USER = "postgres"
 POSTGRES_PASSWORD = "carelle%402025"
 POSTGRES_SERVER = "localhost"  # ou l'adresse IP de votre serveur

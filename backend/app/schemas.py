@@ -250,6 +250,42 @@ class ResponsableProfile(BaseModel):
     id: int
     base: Optional[str] = None
     zone: Optional[str] = None
+    chefs_zone: Optional[List['ChefZoneProfileSimple']] = []
+    class Config:
+        from_attributes = True
+
+# Version simplifiée pour éviter les références circulaires
+class ChefZoneProfileSimple(BaseModel):
+    id: int
+    zone: Optional[str] = None
+    est_superviseur: Optional[bool] = False
+    class Config:
+        from_attributes = True
+
+class ResponsableSimple(BaseModel):
+    id: int
+    base: Optional[str] = None
+    user: Optional['UserSimple'] = None
+    class Config:
+        from_attributes = True
+
+class UserSimple(BaseModel):
+    id: int
+    nom: str
+    class Config:
+        from_attributes = True
+
+class ChefZoneProfileFull(BaseModel):
+    id: int
+    zone: Optional[str] = None
+    user: Optional[UserSimple] = None
+    responsable: Optional[ResponsableSimple] = None
+    class Config:
+        from_attributes = True
+
+class MerchandiserProfileSimple(BaseModel):
+    id: int
+    sous_zone: Optional[str] = None
     class Config:
         from_attributes = True
 
@@ -258,6 +294,8 @@ class ChefZoneProfile(BaseModel):
     zone: Optional[str] = None
     responsable_id: Optional[int] = None
     est_superviseur: Optional[bool] = False
+    responsable: Optional[ResponsableSimple] = None
+    merchandisers: Optional[List[MerchandiserProfileSimple]] = []
     class Config:
         from_attributes = True
 
@@ -265,6 +303,7 @@ class MerchandiserProfile(BaseModel):
     id: int
     chef_zone_id: Optional[int] = None
     sous_zone: Optional[str] = None
+    chef_zone: Optional[ChefZoneProfileFull] = None
     class Config:
         from_attributes = True
 
@@ -340,6 +379,35 @@ class VeilleConcurrentielle(VeilleConcurrentielleBase):
     class Config:
         from_attributes = True
 
+class PhotoRayon(BaseModel):
+    id: int
+    visite_id: int
+    type_rayon: str
+    moment: str
+    photo_url: str
+    created_at: datetime
+    class Config:
+        from_attributes = True
+
+class PhotoEquipement(BaseModel):
+    id: int
+    visite_id: int
+    equipment_key: str
+    photo_url: str
+    created_at: datetime
+    class Config:
+        from_attributes = True
+
+class PhotoIncident(BaseModel):
+    id: int
+    visite_id: int
+    incident_key: str
+    photo_index: int
+    photo_url: str
+    created_at: datetime
+    class Config:
+        from_attributes = True
+
 class Visite(BaseModel):
     id: int
     merchandiser_id: int
@@ -408,6 +476,9 @@ class VisiteDetail(Visite):
     releves_stock: List[ReleveStock] = []
     details_produits: List[DetailVisiteProduit] = []
     veilles_concurrentielles: List[VeilleConcurrentielle] = []
+    photos_rayon: List[PhotoRayon] = []
+    photos_equipement: List[PhotoEquipement] = []
+    photos_incident: List[PhotoIncident] = []
     class Config:
         from_attributes = True
 

@@ -1,15 +1,18 @@
 # Fichier: app/main.py - VERSION FINALE COMPLÈTE ET INTÉGRALE
 
-from fastapi import FastAPI, Depends, HTTPException, status, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Depends, HTTPException, status, WebSocket, WebSocketDisconnect, File, UploadFile
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse, FileResponse
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
-from typing import List
+from typing import List, Optional
 import datetime
 import io
 import csv
-from fastapi.responses import StreamingResponse
+import os
+import shutil
+from pathlib import Path
 
 from . import models, schemas, crud, security, database
 from .websocket_manager import manager
@@ -26,7 +29,11 @@ origins = [
     "http://127.0.0.1",
     "http://127.0.0.1:3000",
     "http://10.105.50.117",
-    "http://10.105.50.117:3000"
+    "http://10.105.50.117:3000",
+    "http://84.200.73.61",
+    "http://84.200.73.61:3000",
+    "http://10.0.2.2:8000",  # Pour émulateur Android
+    "*"  # Autoriser toutes les origines en développement
 ]
 
 app.add_middleware(
@@ -447,12 +454,14 @@ def search_users(
     admin_user: models.User = Depends(get_current_admin_user)
 ):
     """Recherche des utilisateurs par nom ou email avec leurs profils associés."""
-    # Charger les profils associés avec joinedload
+    # Charger les profils associés avec joinedload et leurs relations imbriquées
     base_query = db.query(models.User).options(
         joinedload(models.User.role),
-        joinedload(models.User.responsable_profile),
-        joinedload(models.User.chef_zone_profile),
-        joinedload(models.User.merchandiser_profile)
+        joinedload(models.User.responsable_profile).joinedload(models.Responsable.chefs_zone),
+        joinedload(models.User.chef_zone_profile).joinedload(models.ChefZone.responsable).joinedload(models.Responsable.user),
+        joinedload(models.User.chef_zone_profile).joinedload(models.ChefZone.merchandisers),
+        joinedload(models.User.merchandiser_profile).joinedload(models.Merchandiser.chef_zone).joinedload(models.ChefZone.user),
+        joinedload(models.User.merchandiser_profile).joinedload(models.Merchandiser.chef_zone).joinedload(models.ChefZone.responsable)
     )
 
     if not query:
@@ -861,6 +870,157 @@ def create_visite(visite: schemas.VisiteCreate, db: Session = Depends(get_db), c
         create_and_broadcast_notification(db, notification)
 
     return db_visite
+
+# Créer le dossier uploads s'il n'existe pas
+# Créer les dossiers pour chaque type de photo
+UPLOAD_BASE_DIR = Path("backend/uploads")
+UPLOAD_DIR_RAYON = UPLOAD_BASE_DIR / "photoRayon"
+UPLOAD_DIR_EQUIPEMENT = UPLOAD_BASE_DIR / "equipement"
+UPLOAD_DIR_INCIDENT = UPLOAD_BASE_DIR / "photoIncidents"
+
+# Créer tous les dossiers
+UPLOAD_DIR_RAYON.mkdir(parents=True, exist_ok=True)
+UPLOAD_DIR_EQUIPEMENT.mkdir(parents=True, exist_ok=True)
+UPLOAD_DIR_INCIDENT.mkdir(parents=True, exist_ok=True)
+
+@app.post("/visites/{visite_id}/upload-photo", tags=["Visites"])
+async def upload_photo(
+    visite_id: int,
+    file: UploadFile = File(...),
+    type_rayon: Optional[str] = None,
+    moment: Optional[str] = None,
+    photo_type: Optional[str] = None,
+    equipment_key: Optional[str] = None,
+    incident_key: Optional[str] = None,
+    photo_index: Optional[int] = None,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """
+    Upload une photo pour une visite.
+    Types supportés: rayon, equipment, incident
+    Format du nom: {merchandiser_id}_{YYYYMMDD_HHMMSS}_{AV/AP}_{R/E/I}.ext
+    """
+    # Vérifier que la visite existe et appartient au merchandiser
+    db_visite = db.query(models.Visite).filter(models.Visite.id == visite_id).first()
+    if not db_visite:
+        raise HTTPException(status_code=404, detail="Visite non trouvée")
+
+    if not current_user.merchandiser_profile:
+        raise HTTPException(status_code=403, detail="Seul un merchandiser peut uploader des photos")
+
+    if db_visite.merchandiser_id != current_user.merchandiser_profile.id:
+        raise HTTPException(status_code=403, detail="Vous ne pouvez pas modifier cette visite")
+
+    # Obtenir l'ID du merchandiser
+    merchandiser_id = db_visite.merchandiser_id
+
+    # Générer le timestamp
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    # Extension du fichier
+    file_extension = file.filename.split('.')[-1] if '.' in file.filename else 'jpg'
+
+    # Déterminer le type de photo et générer le nom approprié
+    if type_rayon and moment:
+        # Photo de rayon: {merchandiser_id}_{timestamp}_{AV/AP}_R.ext
+        upload_dir = UPLOAD_DIR_RAYON
+        folder_name = "photoRayon"
+        moment_code = "AV" if moment.upper() == "AVANT" else "AP"
+        filename = f"{merchandiser_id}_{timestamp}_{moment_code}_R.{file_extension}"
+
+        # Sauvegarder le fichier
+        file_path = upload_dir / filename
+        with file_path.open("wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        # Enregistrer dans la BD
+        photo_url = f"/uploads/{folder_name}/{filename}"
+        db_photo = models.PhotoRayon(
+            visite_id=visite_id,
+            type_rayon=type_rayon,
+            moment=moment,
+            photo_url=photo_url
+        )
+        db.add(db_photo)
+
+    elif photo_type == "equipment" and equipment_key:
+        # Photo d'équipement: {merchandiser_id}_{timestamp}_E.ext
+        upload_dir = UPLOAD_DIR_EQUIPEMENT
+        folder_name = "equipement"
+        filename = f"{merchandiser_id}_{timestamp}_E.{file_extension}"
+
+        # Sauvegarder le fichier
+        file_path = upload_dir / filename
+        with file_path.open("wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        # Enregistrer dans la BD
+        photo_url = f"/uploads/{folder_name}/{filename}"
+        db_photo = models.PhotoEquipement(
+            visite_id=visite_id,
+            equipment_key=equipment_key,
+            photo_url=photo_url
+        )
+        db.add(db_photo)
+
+    elif photo_type == "incident" and incident_key is not None:
+        # Photo d'incident: {merchandiser_id}_{timestamp}_I_{index}.ext
+        upload_dir = UPLOAD_DIR_INCIDENT
+        folder_name = "photoIncidents"
+        index_suffix = f"_{photo_index}" if photo_index is not None else ""
+        filename = f"{merchandiser_id}_{timestamp}_I{index_suffix}.{file_extension}"
+
+        # Sauvegarder le fichier
+        file_path = upload_dir / filename
+        with file_path.open("wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        # Enregistrer dans la BD
+        photo_url = f"/uploads/{folder_name}/{filename}"
+        db_photo = models.PhotoIncident(
+            visite_id=visite_id,
+            incident_key=incident_key,
+            photo_index=photo_index or 0,
+            photo_url=photo_url
+        )
+        db.add(db_photo)
+
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail="Paramètres invalides. Fournir soit (type_rayon + moment), soit (photo_type=equipment + equipment_key), soit (photo_type=incident + incident_key)"
+        )
+
+    db.commit()
+    db.refresh(db_photo)
+
+    return {"photo_url": photo_url, "photo_id": db_photo.id}
+
+@app.get("/uploads/photoRayon/{filename}")
+async def get_photo_rayon(filename: str):
+    """Récupérer une photo de rayon."""
+    file_path = UPLOAD_DIR_RAYON / filename
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="Photo non trouvée")
+    return FileResponse(file_path)
+
+@app.get("/uploads/equipement/{filename}")
+async def get_photo_equipement(filename: str):
+    """Récupérer une photo d'équipement."""
+    file_path = UPLOAD_DIR_EQUIPEMENT / filename
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="Photo non trouvée")
+    return FileResponse(file_path)
+
+@app.get("/uploads/photoIncidents/{filename}")
+async def get_photo_incident(filename: str):
+    """Récupérer une photo d'incident."""
+    file_path = UPLOAD_DIR_INCIDENT / filename
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="Photo non trouvée")
+    return FileResponse(file_path)
+
 @app.get("/visites/{visite_id}", response_model=schemas.VisiteDetail, tags=["Visites"])
 def read_visite_details(visite_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     db_visite = (
@@ -871,7 +1031,10 @@ def read_visite_details(visite_id: int, db: Session = Depends(get_db), current_u
             joinedload(models.Visite.client).joinedload(models.Client.commercial),
             joinedload(models.Visite.releves_stock).joinedload(models.ReleveStock.produit),
             joinedload(models.Visite.details_produits).joinedload(models.DetailVisiteProduit.produit),
-            joinedload(models.Visite.veilles_concurrentielles).joinedload(models.VeilleConcurrentielle.concurrent)
+            joinedload(models.Visite.veilles_concurrentielles).joinedload(models.VeilleConcurrentielle.concurrent),
+            joinedload(models.Visite.photos_rayon),
+            joinedload(models.Visite.photos_equipement),
+            joinedload(models.Visite.photos_incident)
         )
         .filter(models.Visite.id == visite_id)
         .first()
