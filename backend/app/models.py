@@ -108,6 +108,8 @@ class Visite(Base):
     validateur_id = Column(Integer, ForeignKey('superviseurs.id'), nullable=True)
     date_validation = Column(Date, nullable=True)
     heure_debut = Column(Time, nullable=True)
+    rejection_reason = Column(Text, nullable=True)
+    notification_status = Column(String(50), default='non lu')
     
     merchandiser = relationship("Merchandiser", back_populates="visites")
     validateur = relationship("Superviseur")

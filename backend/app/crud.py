@@ -193,8 +193,33 @@ def create_visite(db: Session, visite: schemas.VisiteCreate, merchandiser_id: in
     return db_visite
 
 
+def update_visite(db: Session, visite_id: int, visite_update: schemas.VisiteUpdate):
+    db_visite = db.query(models.Visite).filter(models.Visite.id == visite_id).first()
+    if not db_visite:
+        return None
+    update_data = visite_update.dict(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(db_visite, key, value)
+    db.add(db_visite)
+    db.commit()
+    db.refresh(db_visite)
+    return db_visite
+
+
 def log_activity(db: Session, user_id: int, action: str):
     """Enregistre une nouvelle activité dans le journal."""
     db_log = models.ActiviteLog(user_id=user_id, action=action)
     db.add(db_log)
-    
+
+def get_notifications_for_user(db: Session, user_id: int):
+    """Récupère les notifications non lues pour un utilisateur."""
+    merchandiser = db.query(models.Merchandiser).filter(models.Merchandiser.user_id == user_id).first()
+    if not merchandiser:
+        return []
+
+    notifications = db.query(models.Visite).filter(
+        models.Visite.merchandiser_id == merchandiser.id,
+        models.Visite.notification_status == 'non lu'
+    ).all()
+
+    return notifications

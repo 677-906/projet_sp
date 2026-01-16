@@ -9,7 +9,7 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 const API_URL = 'http://192.168.43.117:8000'; 
 // --------------------
 
-export default function HomeScreen() {
+export default function HomeScreen({ navigation }) {
   // On crée des états pour stocker les infos de l'utilisateur et gérer le chargement
   const [userData, setUserData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -53,9 +53,14 @@ export default function HomeScreen() {
           {/* On affiche le nom de l'utilisateur s'il a été chargé */}
           <Text style={styles.userName}>{userData ? userData.nom : 'Merchandiser'}</Text>
         </View>
-        <TouchableOpacity onPress={signOut} style={styles.logoutButton}>
-          <Ionicons name="log-out-outline" size={28} color="#dc3545" />
-        </TouchableOpacity>
+        <View style={styles.headerIcons}>
+          <TouchableOpacity onPress={() => navigation.navigate('Notifications')} style={styles.notificationButton}>
+            <Ionicons name="notifications-outline" size={28} color="#007bff" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={signOut} style={styles.logoutButton}>
+            <Ionicons name="log-out-outline" size={28} color="#dc3545" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Section pour les KPIs (à développer plus tard) */}
@@ -103,6 +108,13 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: '#343a40',
+  },
+  headerIcons: {
+    flexDirection: 'row',
+  },
+  notificationButton: {
+    padding: 8,
+    marginRight: 8,
   },
   logoutButton: {
     padding: 8,

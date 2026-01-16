@@ -10,6 +10,7 @@ import ClientsScreen from './screens/ClientsScreen';
 import VisitFormScreen from './screens/VisitFormScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import SettingsScreen from './screens/SettingsScreen';
+import NotificationsScreen from './screens/NotificationsScreen';
 
 import { AuthProvider, AuthContext } from './context/AuthContext';
 
@@ -57,6 +58,7 @@ function AppStack() {
             <Stack.Screen name="MainTabs" component={HomeTabs} options={{ headerShown: false }} />
             <Stack.Screen name="VisitForm" component={VisitFormScreen} options={{ title: 'Rapport de Visite' }} />
             <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Paramètres du Serveur' }} />
+            <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ title: 'Notifications' }} />
         </Stack.Navigator>
     );
 }
