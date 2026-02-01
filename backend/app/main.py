@@ -10,14 +10,20 @@ import datetime
 import io
 import csv
 from fastapi.responses import StreamingResponse
+from . import notifications
 
 from . import models, schemas, crud, security, database
 
 models.Base.metadata.create_all(bind=database.engine)
 app = FastAPI(title="API Source du Pays")
 
+import os
+
 # Configuration CORS
-origins = ["http://localhost", "http://localhost:3000", "http://10.105.50.117"]
+# On récupère les origines depuis une variable d'environnement, avec une valeur par défaut
+origins_str = os.getenv("CORS_ORIGINS", "http://localhost,http://localhost:3000,http://10.105.50.117")
+origins = [origin.strip() for origin in origins_str.split(',')]
+
 app.add_middleware(CORSMiddleware, allow_origins=origins, allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 
@@ -86,6 +92,22 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db:
 @app.get("/users/me/", response_model=schemas.User, tags=["Authentification"])
 def read_users_me(current_user: models.User = Depends(get_current_user)):
     return current_user
+
+@app.put("/users/me/push-token", status_code=status.HTTP_204_NO_CONTENT, tags=["Authentification"])
+def update_push_token(
+    payload: schemas.PushTokenPayload,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Met à jour le token de notification push de l'utilisateur.
+    """
+    print(f"Received push token for user {current_user.email}: {payload.push_token}")
+    current_user.push_token = payload.push_token
+    db.commit()
+    print(f"Push token for user {current_user.email} updated successfully.")
+    return
+
 @app.get("/roles/", response_model=List[schemas.Role], tags=["Données de Référence"])
 def read_roles(db: Session = Depends(get_db)):
     return db.query(models.Role).all()
@@ -113,6 +135,10 @@ def read_visites_validees(
     """Récupère la liste de tous les rapports de visite qui ont été validés."""
     visites = (
         db.query(models.Visite)
+        .options(
+            joinedload(models.Visite.validateur).joinedload(models.Superviseur.user),
+            joinedload(models.Visite.merchandiser).joinedload(models.Merchandiser.user)
+        )
         .filter(models.Visite.statut_validation == 'valide')
         .order_by(models.Visite.date_visite.desc())
         .offset(skip)
@@ -426,24 +452,29 @@ def read_visite_details(visite_id: int, db: Session = Depends(get_db), current_u
     return db_visite
 @app.put("/visites/{visite_id}/valider", response_model=schemas.Visite, tags=["Superviseur - Validation"])
 def valider_visite(
-    visite_id: int, 
-    db: Session = Depends(get_db), 
+    visite_id: int,
+    db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
     """Change le statut d'une visite à 'valide'."""
-    # On vérifie que l'utilisateur est bien un superviseur
     if not current_user.superviseur_profile:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Accès réservé aux superviseurs")
-    # 1. On récupère la visite depuis la base de données
+
     db_visite = db.query(models.Visite).filter(models.Visite.id == visite_id).first()
-    
-    # 2. On vérifie si la visite existe
     if not db_visite:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Visite non trouvée")
-    
+
     db_visite.statut_validation = 'valide'
     db_visite.validateur_id = current_user.superviseur_profile.id
     
+    merchandiser_user = db_visite.merchandiser.user
+    if merchandiser_user.push_token:
+        notifications.send_push_message(
+            token=merchandiser_user.push_token,
+            title="Rapport Validé",
+            message=f"Votre rapport pour le client {db_visite.client.nom_client} a été validé."
+        )
+
     db.commit()
     db.refresh(db_visite)
     return db_visite
@@ -451,25 +482,31 @@ def valider_visite(
 
 @app.put("/visites/{visite_id}/rejeter", response_model=schemas.Visite, tags=["Superviseur - Validation"])
 def rejeter_visite(
-    visite_id: int, 
-    db: Session = Depends(get_db), 
+    visite_id: int,
+    payload: schemas.VisiteRejectionPayload,
+    db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
     """Change le statut d'une visite à 'rejete'."""
-    # On vérifie que l'utilisateur est bien un superviseur
     if not current_user.superviseur_profile:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Accès réservé aux superviseurs")
 
-    # 1. On récupère la visite depuis la base de données
     db_visite = db.query(models.Visite).filter(models.Visite.id == visite_id).first()
-    
-    # 2. On vérifie si la visite existe
     if not db_visite:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Visite non trouvée")
 
     db_visite.statut_validation = 'rejete'
     db_visite.validateur_id = current_user.superviseur_profile.id
+    db_visite.rejection_reason = payload.rejection_reason
     
+    merchandiser_user = db_visite.merchandiser.user
+    if merchandiser_user.push_token:
+        notifications.send_push_message(
+            token=merchandiser_user.push_token,
+            title="Rapport Rejeté",
+            message=f"Votre rapport pour {db_visite.client.nom_client} a été rejeté. Raison: {payload.rejection_reason}"
+        )
+
     db.commit()
     db.refresh(db_visite)
     return db_visite

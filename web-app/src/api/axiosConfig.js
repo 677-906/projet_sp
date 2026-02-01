@@ -2,8 +2,8 @@
 
 import axios from 'axios';
 
-// Assurez-vous que l'adresse IP est correcte
-const API_URL = 'http://127.0.0.1:8000'; 
+// L'URL de l'API est maintenant lue depuis les variables d'environnement
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 const axiosInstance = axios.create({
   baseURL: API_URL,
